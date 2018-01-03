@@ -1,0 +1,5 @@
+rootProject.name = 'kcqrs'
+include 'kcqrs-core',
+        'kcqrs-appengine',
+        'kcqrs-testing',
+        'kcqrs-example'

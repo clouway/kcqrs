@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
+
+  <servlet>
+    <servlet-name>cqrsEventHandler</servlet-name>
+    <servlet-class>com.clouway.kcqrs.example.KCqrsEventHandler</servlet-class>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>cqrsEventHandler</servlet-name>
+    <url-pattern>/worker/kcqrs</url-pattern>
+  </servlet-mapping>
+
+  <filter>
+    <filter-name>namespaceFilter</filter-name>
+    <filter-class>com.clouway.kcqrs.example.NamespaceEnforceFilter</filter-class>
+  </filter>
+
+  <filter-mapping>
+    <filter-name>namespaceFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>productServiceServlet</servlet-name>
+    <servlet-class>com.clouway.kcqrs.example.ProductServiceServlet</servlet-class>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>productServiceServlet</servlet-name>
+    <url-pattern>/api/products</url-pattern>
+  </servlet-mapping>
+
+  <security-constraint>
+      <web-resource-collection>
+          <web-resource-name>worker</web-resource-name>
+          <url-pattern>/worker/*</url-pattern>
+      </web-resource-collection>
+      <auth-constraint>
+          <role-name>admin</role-name>
+      </auth-constraint>
+  </security-constraint>
+
+</web-app>
