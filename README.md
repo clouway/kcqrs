@@ -2,6 +2,9 @@
 
 CQRS library build in Kotlin for better development experience.
 
+### Architecture
+![Architecture](docs/architecture.png)
+
 #### Handling Commands 
 
 ```kotlin
