@@ -150,6 +150,24 @@ cqrs.messageBus()
 cqrs.repository()
 ```
 
+
+#### Maven dependency 
+
+```xml  
+    <dependency>
+      <groupId>com.clouway.kcqrs</groupId>
+      <artifactId>kcqrs-core</artifactId>
+      <version>0.0.1</version>
+    </dependency>
+    
+   <dependency>
+      <groupId>com.clouway.kcqrs.adapters</groupId>
+      <artifactId>kcqrs-appengine</artifactId>
+      <version>0.0.1</version>
+    </dependency>
+```
+
+
 #### TODO
  * MongoDB Adapter 
  
