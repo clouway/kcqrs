@@ -31,7 +31,7 @@ allprojects {
        name 'kcqrs'
        description 'CQRS In Kotlin'
        url 'https://github.com/clouway/kcqrs'
-       inceptionYear '2017'
+       inceptionYear '2018'
 
        scm {
          url 'https://github.com/clouway/kcqrs'

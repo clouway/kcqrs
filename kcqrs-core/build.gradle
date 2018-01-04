@@ -1,5 +1,4 @@
 group 'com.clouway.kcqrs'
-version '1.0-SNAPSHOT'
 
 description = 'kcqrs-core'
 
