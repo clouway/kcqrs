@@ -66,7 +66,7 @@ class KCqrsEventHandler : AbstractEventHandlerServlet() {
     }
 
     override fun messageBus(): MessageBus {
-        return Kcqrs.messageBus()
+        return CQRSContext.messageBus()
     }
     
 }
@@ -96,10 +96,10 @@ Adding it to web.xml
 ```
 
 ```kotlin
-// Initialize KCQRS for GAE by using name of Entity to which events are going to be stored and event handling url
-val cqrs = AppEngineKCqrs("Events", "/worker/kcqrs")
+// Initialize KCQRS for GAE 
+val cqrs = AppEngineKCqrs("Event", "/worker/kcqrs")
 
-// Accessing message
+// Accessing message bus
 cqrs.messageBus()
 // Accessing repository 
 cqrs.repository()
