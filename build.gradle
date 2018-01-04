@@ -4,9 +4,13 @@ apply plugin: 'com.bmuschko.nexus'
 buildscript {
   repositories {
     jcenter()
+    maven {
+      url 'https://plugins.gradle.org/m2/'
+    }
   }
   dependencies {
     classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
+    classpath 'net.researchgate:gradle-release:2.6.0'
   }
 }
 
@@ -14,6 +18,7 @@ repositories {
   mavenCentral()
 }
 
+apply plugin: 'net.researchgate.release'
 
 allprojects {
   apply plugin: 'java'
@@ -24,7 +29,6 @@ allprojects {
 
 
   group = 'com.clouway.kcqrs'
-  version = '0.0.1'
   
   modifyPom {
      project {

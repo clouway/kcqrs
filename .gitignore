@@ -5,7 +5,6 @@
 # Gradle
 # ------
 .gradle
-gradle.properties
 build
 /build
 /buildSrc/build
