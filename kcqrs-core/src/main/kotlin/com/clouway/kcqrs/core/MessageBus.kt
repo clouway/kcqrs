@@ -1,6 +1,10 @@
 package com.clouway.kcqrs.core
 
 /**
+ * MessageBus is the core component in the CQRS architecture which provides method for dispatching of Commands for
+ * execution and event handlers which to be
+ *
+ *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 interface MessageBus {

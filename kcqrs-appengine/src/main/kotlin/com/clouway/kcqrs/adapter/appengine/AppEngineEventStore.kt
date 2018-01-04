@@ -9,13 +9,13 @@ import java.util.*
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class AppEngineEventStore(private val kind: String = "EventStore") : EventStore {
+internal class AppEngineEventStore(private val kind: String = "Event") : EventStore {
     private val gson = Gson()
 
     /**
      * Property name for the list of events in storage
      */
-    private val eventsProperty = "Events"
+    private val eventsProperty = "l"
 
     override fun saveEvents(aggregateId: UUID, expectedVersion: Int, events: Iterable<Event>) {
         var transaction: Transaction? = null

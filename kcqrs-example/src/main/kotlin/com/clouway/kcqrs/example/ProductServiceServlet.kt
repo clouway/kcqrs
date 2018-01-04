@@ -13,12 +13,12 @@ import javax.servlet.http.HttpServletResponse
  */
 class ProductServiceServlet : HttpServlet() {
     private lateinit var messageBus: MessageBus
-    private lateinit var eventRepository: EventRepository
+    private lateinit var eventRepository: Repository
 
     override fun init(config: ServletConfig?) {
-        messageBus = KCqrs.messageBus()
+        messageBus = CQRSContext.messageBus()
 
-        eventRepository = KCqrs.eventRepository()
+        eventRepository = CQRSContext.eventRepository()
 
         messageBus.registerInterceptor(object : Interceptor {
             override fun intercept(chain: Interceptor.Chain) {

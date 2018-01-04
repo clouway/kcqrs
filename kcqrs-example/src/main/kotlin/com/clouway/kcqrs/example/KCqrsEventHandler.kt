@@ -19,7 +19,7 @@ class KCqrsEventHandler : AbstractEventHandlerServlet() {
     }
 
     override fun messageBus(): MessageBus {
-        return KCqrs.messageBus()
+        return CQRSContext.messageBus()
     }
 
 }
