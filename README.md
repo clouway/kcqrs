@@ -5,6 +5,48 @@ CQRS library build in Kotlin for better development experience.
 ### Architecture
 ![Architecture](docs/architecture.png)
 
+### Use Case
+
+```kotlin
+class Invoice private constructor(@JvmField var customerName: String, @JvmField val amount: BigDecimal) : AggregateRootBase() {
+
+  // Required for the serialization 
+  constructor() : this("", BigDecimal.ZERO)
+
+  constructor(id: UUID, customerName: String, amount: BigDecimal) : this(customerName, amount) {
+    applyChange(InvoiceCreatedEvent(id, customerName))
+  }
+
+  fun changeCustomerName(customerName: String) {
+    applyChange(InvoiceCustomerNameChangedEvent(getId()!!, customerName))
+  }
+
+  fun apply(event: InvoiceCreatedEvent) {
+    uuid = event.invoiceId
+    customerName = event.customerName    
+  }
+
+  fun apply(event: InvoiceCustomerNameChangedEvent) {
+    customerName = event.newCustomerName
+  }
+}
+    
+data class InvoiceCreatedEvent(@JvmField val invoiceId: UUID, @JvmField val customerName: String) : Event
+    
+data class InvoiceCustomerNameChangedEvent(@JvmField val invoiceId: UUID, @JvmField val newCustomerName: String) : Event
+
+// ...
+// Usage 
+val invoice = Invoice(UUID.randomUUID(), "John", BigDecimal(30))        
+eventRepository.save(invoice)
+
+invoice.changeCustomerName("Peter")
+eventRepository.save(invoice)
+
+// Load Invoice document from events
+val updateInvoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java)
+```
+
 #### Handling Commands 
 
 ```kotlin
