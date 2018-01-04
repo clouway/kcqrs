@@ -32,11 +32,11 @@ dependencies {
   compile project(':kcqrs-appengine')
   compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
 
-  providedCompile 'com.google.appengine:appengine:+'
-  compile 'com.google.code.gson:gson:2.8.0'
-  
+  providedCompile "com.google.appengine:appengine:$gae_version"
   compile "com.google.appengine:appengine-api-1.0-sdk:$gae_version"
   compile "com.google.appengine:appengine-tools-sdk:$gae_version"
+
+  compile 'com.google.code.gson:gson:2.8.0'
 }
 
 gretty {
