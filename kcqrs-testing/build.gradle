@@ -1,7 +1,7 @@
 group 'com.clouway.kcqrs'
 
 buildscript {
-  ext.kotlin_version = '1.2.10'
+  ext.kotlin_version = '1.2.30'
   ext.gae_version = '1.9.56'
 
   repositories {
@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
   compile project(':kcqrs-core')
-  compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+  compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
 
 compileKotlin {
