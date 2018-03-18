@@ -2,6 +2,9 @@
 
 CQRS library build in Kotlin for better development experience.
 
+### Build Status
+[![Build Status](https://travis-ci.org/clouway/kcqrs.svg?branch=master)](https://travis-ci.org/clouway/kcqrs)
+
 ### Architecture
 ![Architecture](docs/architecture.png)
 
