@@ -1,6 +1,7 @@
 package com.clouway.kcqrs.adapter.appengine
 
 import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.messages.MessageFormatFactory
 
 /**
  * AppEngineKcqrs is an AppEngine implementation of Kcqrs which uses the GAE datastore for persistence of events
@@ -11,9 +12,9 @@ import com.clouway.kcqrs.core.*
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class AppEngineKcqrs(eventKind: String = "Event", eventHandlerEndpoint: String) : Kcqrs {
+class AppEngineKcqrs(eventKind: String = "Event", eventHandlerEndpoint: String, messageFormatFactory: MessageFormatFactory) : Kcqrs {
     private val messageBus = SimpleMessageBus()
-    private val eventStore = AppEngineEventStore(eventKind)
+    private val eventStore = AppEngineEventStore(eventKind, messageFormatFactory.createMessageFormat())
     private val eventPublisher = TaskQueueEventPublisher(eventHandlerEndpoint)
     private val repository = EventRepository(eventStore, eventPublisher)
 

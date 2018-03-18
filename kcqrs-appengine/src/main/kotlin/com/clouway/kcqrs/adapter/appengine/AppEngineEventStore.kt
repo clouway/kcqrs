@@ -1,16 +1,16 @@
 package com.clouway.kcqrs.adapter.appengine
 
 import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.appengine.api.datastore.*
-import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import java.io.ByteArrayInputStream
 import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-internal class AppEngineEventStore(private val kind: String = "Event") : EventStore {
-    private val gson = Gson()
+internal class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat) : EventStore {
 
     /**
      * Property name for the list of events in storage
@@ -54,12 +54,12 @@ internal class AppEngineEventStore(private val kind: String = "Event") : EventSt
                 //increment the current version
                 currentVersion++
 
-                val eventJson = gson.toJson(event)
+                val eventJson = messageFormat.format(event)
                 val kind = event::class.java.simpleName
 
                 val newEvent = EventModel(kind, eventJson, currentVersion, Date().time)
 
-                val json = gson.toJson(newEvent)
+                val json = messageFormat.format(newEvent)
                 entityEvents.add(json)
             }
 
@@ -88,7 +88,7 @@ internal class AppEngineEventStore(private val kind: String = "Event") : EventSt
 
         val lastItemIndex = entityEvents.size - target.size
 
-        val newEvents = entityEvents.filterIndexed { index, _ ->  index <= lastItemIndex }
+        val newEvents = entityEvents.filterIndexed { index, _ -> index <= lastItemIndex }
 
         entity.setUnindexedProperty(eventsProperty, newEvents)
         dataStore.put(entity)
@@ -135,10 +135,12 @@ internal class AppEngineEventStore(private val kind: String = "Event") : EventSt
         }
 
         events
-                .map { gson.fromJson(it, EventModel::class.java) }
+                .map {
+                    messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+                }
                 .forEach {
                     try {
-                        val event = gson.fromJson(it.json, Class.forName(eventTypes[it.kind])) as Event
+                        val event = messageFormat.parse<Event>(ByteArrayInputStream(it.json.toByteArray(Charsets.UTF_8)), Class.forName(eventTypes[it.kind]))
                         history.add(event)
                     } catch (e: JsonSyntaxException) {
                         /*

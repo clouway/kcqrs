@@ -21,6 +21,8 @@ class AppEngineEventStoreTest {
     private val helper = LocalServiceTestHelper(LocalDatastoreServiceTestConfig()
             .setDefaultHighRepJobPolicyUnappliedJobPercentage(100f))
 
+    private val eventStore = AppEngineEventStore(messageFormat = TestingJsonFormat())
+
     @Before
     fun setUp() {
         helper.setUp()
@@ -31,9 +33,9 @@ class AppEngineEventStoreTest {
         helper.tearDown()
     }
 
+
     @Test
     fun getEventsThatAreStored() {
-        val eventStore = AppEngineEventStore()
         val aggregateId = UUID.randomUUID()
 
         val aggregate = User(aggregateId, "John")
@@ -47,7 +49,6 @@ class AppEngineEventStoreTest {
 
     @Test
     fun detectEventCollisions() {
-        val eventStore = AppEngineEventStore()
         val aggregateId = UUID.randomUUID()
 
         val aggregate = User(aggregateId, "John")
@@ -64,7 +65,6 @@ class AppEngineEventStoreTest {
 
     @Test
     fun multipleEvents() {
-        val eventStore = AppEngineEventStore()
         val aggregateId = UUID.randomUUID()
 
         val user = User(aggregateId, "John")
@@ -82,7 +82,6 @@ class AppEngineEventStoreTest {
     
     @Test
     fun multipleEventsAfterGet() {
-        val eventStore = AppEngineEventStore()
         val aggregateId = UUID.randomUUID()
 
         var user = User(aggregateId, "John")
