@@ -20,6 +20,7 @@ class AppBootstrap : SparkApplication {
     
     override fun init() {
         val messageBus = CQRSContext.messageBus()
+
         val eventRepository = CQRSContext.eventRepository()
 
         messageBus.registerInterceptor(object : Interceptor {

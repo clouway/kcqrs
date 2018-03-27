@@ -19,10 +19,10 @@ class SimpleMessageBusTest {
         val handler = MyEventHandler()
         msgBus.registerEventHandler(MyEvent::class.java, handler)
 
-        val event = MyEvent(UUID.randomUUID())
+        val event = EventWithPayload(MyEvent(UUID.randomUUID()), "")
         msgBus.handle(event)
 
-        assertThat(handler.lastEvent, `is`(equalTo(event)))
+        assertThat(handler.lastEvent, `is`(equalTo(event.event)))
     }
 
     @Test
@@ -35,18 +35,18 @@ class SimpleMessageBusTest {
         msgBus.registerEventHandler(MyEvent::class.java, firstHandler)
         msgBus.registerEventHandler(MyEvent::class.java, secondHandler)
 
-        val event = MyEvent(UUID.randomUUID())
+        val event = EventWithPayload(MyEvent(UUID.randomUUID()), "")
         msgBus.handle(event)
 
-        assertThat(firstHandler.lastEvent, `is`(equalTo(event)))
-        assertThat(secondHandler.lastEvent, `is`(equalTo(event)))
+        assertThat(firstHandler.lastEvent, `is`(equalTo(event.event)))
+        assertThat(secondHandler.lastEvent, `is`(equalTo(event.event)))
 
     }
 
     @Test
     fun noHandlersAreAttached() {
         val msgBus = SimpleMessageBus()
-        msgBus.handle(MyEvent(UUID.randomUUID()))
+        msgBus.handle(EventWithPayload(MyEvent(UUID.randomUUID()), ""))
     }
 
     @Test
@@ -100,7 +100,7 @@ class SimpleMessageBusTest {
             }
         })
 
-        val event = MyEvent(UUID.randomUUID())
+        val event = EventWithPayload(MyEvent(UUID.randomUUID()), "")
         msgBus.handle(event)
 
         assertThat(callLog, `is`(equalTo(listOf(
@@ -123,7 +123,7 @@ class SimpleMessageBusTest {
             }
         })
 
-        val event = MyEvent(UUID.randomUUID())
+        val event = EventWithPayload(MyEvent(UUID.randomUUID()), "")
         msgBus.handle(event)
 
         assertThat(callLog, `is`(equalTo(listOf(

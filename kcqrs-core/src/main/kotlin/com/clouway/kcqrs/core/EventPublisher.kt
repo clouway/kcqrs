@@ -8,10 +8,12 @@ package com.clouway.kcqrs.core
 interface EventPublisher {
 
     /**
-     * Publish a set of events
+     * Publish a set of events.
      *
      * @param events the events to be published
      */
     @Throws(PublishErrorException::class)
-    fun publish(events: Iterable<Event>)
+    fun publish(events: Iterable<EventWithPayload>)
+
 }
+

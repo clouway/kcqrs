@@ -1,0 +1,54 @@
+group 'com.clouway.kcqrs'
+
+description = 'kcqrs-client'
+
+buildscript {
+  ext.kotlin_version = '1.2.30'
+
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+  }
+}
+
+apply plugin: 'java'
+apply plugin: 'kotlin'
+
+repositories {
+  mavenCentral()
+}
+
+configurations {
+  providedCompile
+}
+
+dependencies {
+  compile project(':kcqrs-core')
+  compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+  compile 'com.google.http-client:google-http-client:1.23.0'
+  compile 'com.google.http-client:google-http-client-gson:1.23.0'
+
+  testCompile project(':kcqrs-testing')
+  testCompile 'junit:junit:4.12'
+  testCompile 'com.google.code.gson:gson:2.8.0'
+  testCompile 'org.jmock:jmock:2.8.2'
+  testCompile 'org.jmock:jmock-junit4:2.8.2'
+}
+
+sourceSets.main.compileClasspath += configurations.providedCompile
+sourceSets.test.compileClasspath += configurations.providedCompile
+sourceSets.test.runtimeClasspath += configurations.providedCompile
+
+javadoc {
+  failOnError = false
+  classpath = configurations.compile + configurations.providedCompile
+}
+
+compileKotlin {
+  kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+  kotlinOptions.jvmTarget = "1.8"
+}

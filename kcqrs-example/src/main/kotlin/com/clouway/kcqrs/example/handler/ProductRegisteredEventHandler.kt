@@ -15,7 +15,7 @@ class ProductRegisteredEventHandler : EventHandler<ProductRegisteredEvent> {
         println("got new ProductRegisteredEvent: $event")
         val dss = DatastoreServiceFactory.getDatastoreService()
 
-        val key = KeyFactory.createKey("Product", event.uuid.toString())
+        val key = KeyFactory.createKey("Product", event.id.toString())
         try {
             dss.get(key)
             println("nothing to be done as product already exists")

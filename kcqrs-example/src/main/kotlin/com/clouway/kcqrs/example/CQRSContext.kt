@@ -1,23 +1,32 @@
 package com.clouway.kcqrs.example
 
 
-
 import com.clouway.kcqrs.adapter.appengine.AppEngineKcqrs
 import com.clouway.kcqrs.client.gson.GsonMessageFormatFactory
-import com.clouway.kcqrs.core.MessageBus
-import com.clouway.kcqrs.core.Repository
+import com.clouway.kcqrs.core.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 object CQRSContext {
-    private var cqrs = AppEngineKcqrs("Event", "/worker/kcqrs", GsonMessageFormatFactory())
+    private val messageFormatFactory = GsonMessageFormatFactory()
+    private val configuration: Configuration = object : Configuration {
+        override fun topicName(aggregate: AggregateRoot): String {
+            return "products"
+        }
+    }
 
-    fun messageBus() : MessageBus {
+    private var cqrs = AppEngineKcqrs.Builder(configuration, messageFormatFactory).build {
+        kind = "Event"
+        kcqrsHandlerEndpoint = "/worker/kcqrs"
+        identityProvider = IdentityProvider.Default()
+    }
+
+    fun messageBus(): MessageBus {
         return cqrs.messageBus()
     }
 
-    fun eventRepository() : Repository {
+    fun eventRepository(): AggregateRepository {
         return cqrs.repository()
     }
 }

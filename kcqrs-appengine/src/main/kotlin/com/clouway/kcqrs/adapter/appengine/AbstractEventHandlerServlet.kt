@@ -1,6 +1,7 @@
 package com.clouway.kcqrs.adapter.appengine
 
 import com.clouway.kcqrs.core.Event
+import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.MessageBus
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -23,8 +24,7 @@ abstract class AbstractEventHandlerServlet : HttpServlet() {
         val clazz = Class.forName(type)
         try {
             val event = decode(ByteArrayInputStream(payload.toByteArray(Charsets.UTF_8)), clazz)
-
-            messageBus().handle(event)
+            messageBus().handle(EventWithPayload(event, payload))
         } catch (ex: Exception) {
             logger.log(Level.SEVERE, "Could not handle the received event", ex)
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST)

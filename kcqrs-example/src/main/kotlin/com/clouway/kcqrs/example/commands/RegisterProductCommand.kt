@@ -6,4 +6,4 @@ import java.util.*
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-data class RegisterProductCommand(val uuid: UUID, val name: String) : Command
+data class RegisterProductCommand(val id: UUID, val name: String) : Command

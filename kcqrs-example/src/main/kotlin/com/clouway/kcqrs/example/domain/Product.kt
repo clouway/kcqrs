@@ -2,9 +2,8 @@ package com.clouway.kcqrs.example.domain
 
 import com.clouway.kcqrs.core.AggregateRootBase
 import com.clouway.kcqrs.core.Event
-import java.util.*
 
-data class ProductRegisteredEvent(@JvmField val uuid: UUID?, @JvmField val name: String) : Event
+data class ProductRegisteredEvent(@JvmField val id: String, @JvmField val name: String) : Event
 
 data class ProductNameChangedEvent(@JvmField val name: String) : Event
 
@@ -12,7 +11,7 @@ class Product(@JvmField var name: String) : AggregateRootBase() {
 
     constructor() : this("")
 
-    constructor(uuid: UUID?, name: String) : this(name) {
+    constructor(uuid: String, name: String) : this(name) {
         applyChange(ProductRegisteredEvent(uuid, name))
     }
 
@@ -21,7 +20,7 @@ class Product(@JvmField var name: String) : AggregateRootBase() {
     }
 
     fun apply(event: ProductRegisteredEvent) {
-        this.uuid = event.uuid
+        this.uuid = event.id
         this.name = event.name
     }
 

@@ -1,5 +1,6 @@
 rootProject.name = 'kcqrs'
 include 'kcqrs-core',
+        'kcqrs-client',
         'kcqrs-client-gson',
         'kcqrs-appengine',
         'kcqrs-testing',

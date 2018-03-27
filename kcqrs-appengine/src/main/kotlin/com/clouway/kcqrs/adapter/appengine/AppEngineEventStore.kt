@@ -3,71 +3,94 @@ package com.clouway.kcqrs.adapter.appengine
 import com.clouway.kcqrs.core.*
 import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.appengine.api.datastore.*
-import com.google.gson.JsonSyntaxException
 import java.io.ByteArrayInputStream
-import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-internal class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat) : EventStore {
+class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat) : EventStore {
+    /**
+     * Entity Kind used for storing of snapshots.
+     */
+    private val snapshotKind = kind + "Snapshot"
 
     /**
-     * Property name for the list of events in storage
+     * Property name for the aggregate type.
      */
-    private val eventsProperty = "l"
+    private val aggregateTypeProperty = "a"
 
-    override fun saveEvents(aggregateId: UUID, expectedVersion: Int, events: Iterable<Event>) {
+    /**
+     * Property name for the list of event data in the entity.
+     */
+    private val eventsProperty = "e"
+
+    /**
+     * Property name of the version which is used for concurrency control.
+     */
+    private val versionProperty = "v"
+
+    override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
+        val aggregateId = saveOptions.aggregateId
         var transaction: Transaction? = null
 
         try {
             val dataStore = DatastoreServiceFactory.getDatastoreService()
-            transaction = dataStore.beginTransaction()
+            transaction = dataStore.beginTransaction(TransactionOptions.Builder.withXG(true))
 
-            val key = KeyFactory.createKey(kind, aggregateId.toString())
-            var entity: Entity
-            var currentVersion: Long = 0
+            val snapshotKey = KeyFactory.createKey(snapshotKind, aggregateId)
 
-            var entityEvents = mutableListOf<String>()
-            try {
-                entity = dataStore.get(transaction, key)
-
-                @Suppress("UNCHECKED_CAST")
-                entityEvents = entity.getProperty(eventsProperty) as MutableList<String>
-                currentVersion = entityEvents.size.toLong()
-
-                //if the current version is different than what was hydrated during the state change then we know we
-                //have an event collision. This is a very simple approach and more "business knowledge" can be added
-                //here to handle scenarios where the versions may be different but the state change can still occur.
-                if (currentVersion != expectedVersion.toLong()) {
-                    throw EventCollisionException(aggregateId, expectedVersion)
-                }
-
-            } catch (e: EntityNotFoundException) {
-                // Not a problem, just continue on. It is a new aggregate
-                entity = Entity(kind, aggregateId.toString())
+            val snapshot = try {
+                dataStore.get(transaction, snapshotKey)
+            } catch (ex: EntityNotFoundException) {
+                Entity(snapshotKind, aggregateId)
             }
 
-            //convert all of the new events to json for storage
-            for (event in events) {
+            val aggregateIndex = snapshot.getProperty("aggregateIndex") as Long? ?: 0
 
-                //increment the current version
-                currentVersion++
+            /*
+             * Keys of aggregates are dispatched on different levels by using an index for scalling purposes.
+             * Each aggregate in the datastore has single or multiple levels.
+             */
+            val aggregateKey = aggregateKey(aggregateId, aggregateIndex)
+            val aggregateEntity = try {
+                dataStore.get(transaction, aggregateKey)
+            } catch (ex: EntityNotFoundException) {
+                val entity = Entity(aggregateKey)
+                entity.setUnindexedProperty(eventsProperty, mutableListOf<String>())
+                entity.setUnindexedProperty(versionProperty, 0L)
+                entity.setProperty(aggregateTypeProperty, aggregateType)
 
-                val eventJson = messageFormat.format(event)
-                val kind = event::class.java.simpleName
-
-                val newEvent = EventModel(kind, eventJson, currentVersion, Date().time)
-
-                val json = messageFormat.format(newEvent)
-                entityEvents.add(json)
+                entity
             }
 
-            entity.setUnindexedProperty(eventsProperty, entityEvents)
+            @Suppress("UNCHECKED_CAST")
+            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<String>
+            val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
-            dataStore.put(entity)
+            /**
+             *  If the current version is different than what was hydrated during the state change then we know we
+             *  have an event collision. This is a very simple approach and more "business knowledge" can be added
+             *  here to handle scenarios where the versions may be different but the state change can still occur.
+             */
+            if (currentVersion != saveOptions.version) {
+                return SaveEventsResponse.EventCollision(aggregateId, currentVersion)
+            }
+
+            val eventsModel = events.mapIndexed { index, it -> EventModel(it.kind, currentVersion + index + 1, it.identityId, it.timestamp, it.data.payload.toString(Charsets.UTF_8)) }
+            val eventsAsString = eventsModel.map { messageFormat.format(it) }
+
+            aggregateEvents.addAll(eventsAsString)
+
+            aggregateEntity.setUnindexedProperty(eventsProperty, aggregateEvents)
+            aggregateEntity.setUnindexedProperty(versionProperty, currentVersion + events.size)
+
+            dataStore.put(transaction, listOf(snapshot, aggregateEntity))
+
             transaction.commit()
 
+            return SaveEventsResponse.Success(aggregateId, currentVersion)
+        } catch (ex: Exception) {
+            return SaveEventsResponse.Error("could not save events due: ${ex.message}")
         } finally {
             if (transaction != null && transaction.isActive) {
                 transaction.rollback()
@@ -75,85 +98,94 @@ internal class AppEngineEventStore(private val kind: String = "Event", private v
         }
     }
 
-    override fun revertEvents(aggregateId: UUID, events: Iterable<Event>) {
+    override fun getEvents(aggregateId: String): GetEventsResponse {
         val dataStore = DatastoreServiceFactory.getDatastoreService()
 
-        val target = listOf(events)
-
-        val key = KeyFactory.createKey(kind, aggregateId.toString())
-        val entity = dataStore.get(key)
-
-        @Suppress("UNCHECKED_CAST")
-        val entityEvents = entity.getProperty(eventsProperty) as MutableList<String>
-
-        val lastItemIndex = entityEvents.size - target.size
-
-        val newEvents = entityEvents.filterIndexed { index, _ -> index <= lastItemIndex }
-
-        entity.setUnindexedProperty(eventsProperty, newEvents)
-        dataStore.put(entity)
-
-    }
-
-    override fun <T> getEvents(aggregateId: UUID, aggregateType: Class<T>): Iterable<Event> {
-        val dataStore = DatastoreServiceFactory.getDatastoreService()
-
-        val key = KeyFactory.createKey(kind, aggregateId.toString())
-        val entity: Entity
-
-        try {
-            entity = dataStore.get(key)
-        } catch (e: EntityNotFoundException) {
-            throw AggregateNotFoundException(aggregateId)
+        val snapshotKey = KeyFactory.createKey(snapshotKind, aggregateId)
+        val snapshotEntity = try {
+            dataStore.get(snapshotKey)
+        } catch (ex: EntityNotFoundException) {
+            return GetEventsResponse.SnapshotNotFound
         }
 
-        return hydrateEvents(entity, aggregateType)
-    }
+        val aggregateIndex = snapshotEntity.getProperty("aggregateIndex") as Long? ?: 0
+        val snapshotVersion = snapshotEntity.getProperty("version") as Long? ?: 0
 
-    /**
-     * Loop through all of the events and deserialize the json into their respective types
-     *
-     * @param entity
-     * @return
-     * @throws HydrationException
-     */
-    @Throws(HydrationException::class)
-    private fun <T> hydrateEvents(entity: Entity, aggregateType: Class<T>): List<Event> {
+        val snapshotData = snapshotEntity.getProperty("data") as Blob?
+        val snapshot: Snapshot? = if (snapshotData != null) Snapshot(snapshotVersion, Binary(snapshotData.bytes)) else null
+
+        val aggregateKey = aggregateKey(aggregateId, aggregateIndex)
+
+        val aggregate = try {
+            dataStore.get(aggregateKey)
+        } catch (ex: EntityNotFoundException) {
+            return GetEventsResponse.AggregateNotFound
+        }
 
         @Suppress("UNCHECKED_CAST")
-        val events = entity.getProperty(eventsProperty) as List<String>
-        val history = mutableListOf<Event>()
+        val aggregateEvents = aggregate.getProperty(eventsProperty) as List<String>
+        val currentVersion = aggregate.getProperty(versionProperty) as Long
+        val aggregateType = aggregate.getProperty(aggregateTypeProperty) as String
 
-        val methods = aggregateType.declaredMethods
-        val eventTypes = mutableMapOf<String, String>()
-        methods.forEach {
-            if (it.name === "apply") {
-                it.parameters.forEach {
-                    eventTypes[it.type.simpleName] = it.type.name
+        val events = aggregateEvents.map {
+            messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+        }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
+
+        return GetEventsResponse.Success(aggregateId, aggregateType, snapshot, currentVersion, events)
+    }
+
+    override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {
+        if (count == 0) {
+            throw IllegalArgumentException("trying to revert zero events")
+        }
+
+        var transaction: Transaction? = null
+        try {
+            val dataStore = DatastoreServiceFactory.getDatastoreService()
+            transaction = dataStore.beginTransaction(TransactionOptions.Builder.withXG(true))
+
+            val snapshotKey = KeyFactory.createKey(snapshotKind, aggregateId)
+
+            try {
+                val snapshot = dataStore.get(transaction, snapshotKey)
+                val aggregateIndex = snapshot.getProperty("aggregateIndex") as Long? ?: 0
+
+                val aggregateKey = aggregateKey(aggregateId, aggregateIndex)
+
+                val aggregateEntity = dataStore.get(transaction, aggregateKey)
+
+                @Suppress("UNCHECKED_CAST")
+                val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<String>
+                val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
+
+                if (count > aggregateEvents.size) {
+                    return RevertEventsResponse.ErrorNotEnoughEventsToRevert
                 }
+
+                val lastEventIndex = aggregateEvents.size - count
+                val updatedEvents = aggregateEvents.filterIndexed { index, _ -> index < lastEventIndex }
+
+                aggregateEntity.setUnindexedProperty(eventsProperty, updatedEvents)
+                aggregateEntity.setUnindexedProperty(versionProperty, currentVersion - count)
+
+                dataStore.put(transaction, listOf(snapshot, aggregateEntity))
+                transaction.commit()
+
+            } catch (ex: EntityNotFoundException) {
+                return RevertEventsResponse.AggregateNotFound
+            }
+
+        } catch (ex: Exception) {
+            return RevertEventsResponse.Error("could not save events due: ${ex.message}")
+        } finally {
+            if (transaction != null && transaction.isActive) {
+                transaction.rollback()
             }
         }
 
-        events
-                .map {
-                    messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
-                }
-                .forEach {
-                    try {
-                        val event = messageFormat.parse<Event>(ByteArrayInputStream(it.json.toByteArray(Charsets.UTF_8)), Class.forName(eventTypes[it.kind]))
-                        history.add(event)
-                    } catch (e: JsonSyntaxException) {
-                        /*
-                         * Throw a hydration exception along with the aggregate Id and the message
-                        */
-                        throw HydrationException(UUID.fromString(entity.key.toString()), e.message)
-                    } catch (e: ClassNotFoundException) {
-                        throw HydrationException(UUID.fromString(entity.key.toString()), e.message)
-                    }
-                }
-
-        return history
+        return RevertEventsResponse.Success
     }
-}
 
-data class EventModel(@JvmField val kind: String, @JvmField val json: String, @JvmField val version: Long, @JvmField val timestamp: Long)
+    private fun aggregateKey(aggregateId: String, aggregateIndex: Long) =
+            KeyFactory.createKey(kind, "${aggregateId}_$aggregateIndex")
+}

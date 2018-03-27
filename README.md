@@ -144,8 +144,12 @@ Adding it to web.xml
 ```
 
 ```kotlin
-// Initialize KCQRS for GAE 
-val cqrs = AppEngineKCqrs("Event", "/worker/kcqrs")
+// Initialize KCQRS for GAE
+private var cqrs = AppEngineKcqrs.Builder(configuration, messageFormatFactory).build {
+    kind = "Event"
+    kcqrsHandlerEndpoint = "/worker/kcqrs"
+    identityProvider = IdentityProvider.Default()
+} 
 
 // Accessing message bus
 cqrs.messageBus()

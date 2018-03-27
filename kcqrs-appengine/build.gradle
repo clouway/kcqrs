@@ -24,10 +24,9 @@ repositories {
 dependencies {
   compile project(':kcqrs-core')
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-
-  compile 'javax.servlet:servlet-api:2.5'
-  compile 'com.google.code.gson:gson:2.8.0'
   
+  compile 'javax.servlet:servlet-api:2.5'
+
   compile "com.google.appengine:appengine-api-1.0-sdk:$gae_version"
   compile "com.google.appengine:appengine-tools-sdk:$gae_version"
 
@@ -35,6 +34,7 @@ dependencies {
   testCompile group: 'junit', name: 'junit', version: '4.12'
   testCompile "com.google.appengine:appengine-api-stubs:$gae_version", "com.google.appengine:appengine-testing:$gae_version"
 
+  
 }
 
 compileKotlin {

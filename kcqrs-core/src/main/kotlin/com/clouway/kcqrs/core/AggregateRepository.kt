@@ -1,14 +1,12 @@
 package com.clouway.kcqrs.core
 
-import java.util.UUID
-
 /**
  * Repository is representing an Repository which operates with the AggregateRoot objects.
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-interface Repository {
-    
+interface AggregateRepository {
+
     /**
      * Creates a new or updates an existing aggregate in the repository.
      *
@@ -27,6 +25,6 @@ interface Repository {
      * @throws AggregateNotFoundException
      */
     @Throws(HydrationException::class, AggregateNotFoundException::class)
-    fun <T : AggregateRoot> getById(id: UUID, type: Class<T>): T
+    fun <T : AggregateRoot> getById(id: String, type: Class<T>): T
 
 }

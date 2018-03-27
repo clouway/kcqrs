@@ -4,6 +4,8 @@ import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.gson.Gson
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.lang.reflect.Type
 
 /**
@@ -19,5 +21,4 @@ internal class GsonMessageFormat : MessageFormat {
     override fun format(value: Any): String {
         return gson.toJson(value)
     }
-
 }

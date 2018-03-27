@@ -1,24 +1,22 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventPublisher
+import com.clouway.kcqrs.core.EventWithPayload
 import com.google.appengine.api.taskqueue.Queue
 import com.google.appengine.api.taskqueue.QueueFactory
 import com.google.appengine.api.taskqueue.TaskOptions
-import com.google.gson.Gson
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-internal class TaskQueueEventPublisher(private val handlerEndpoint: String, private val queueName: String? = null) : EventPublisher {
-    private val gson = Gson()
-    
-    override fun publish(events: Iterable<Event>) {
+internal class TaskQueueEventPublisher(private val handlerEndpoint: String,
+                                       private val queueName: String? = null) : EventPublisher {
+    override fun publish(events: Iterable<EventWithPayload>) {
         val tasks = events.map {
             TaskOptions.Builder.withUrl(handlerEndpoint)
                     .method(TaskOptions.Method.POST)
-                    .param("type", it::class.java.name)
-                    .param("payload", gson.toJson(it))
+                    .param("type", it.event::class.java.name)
+                    .param("payload", it.payload)
         }
 
         if (tasks.isEmpty()) {
@@ -33,5 +31,4 @@ internal class TaskQueueEventPublisher(private val handlerEndpoint: String, priv
 
         queue.add(tasks)
     }
-
 }
