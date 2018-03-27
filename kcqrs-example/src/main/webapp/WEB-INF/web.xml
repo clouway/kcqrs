@@ -23,15 +23,19 @@
     <url-pattern>/*</url-pattern>
   </filter-mapping>
 
-  <servlet>
-    <servlet-name>productServiceServlet</servlet-name>
-    <servlet-class>com.clouway.kcqrs.example.ProductServiceServlet</servlet-class>
-  </servlet>
+  <filter>
+      <filter-name>SparkFilter</filter-name>
+      <filter-class>spark.servlet.SparkFilter</filter-class>
+      <init-param>
+          <param-name>applicationClass</param-name>
+          <param-value>com.clouway.kcqrs.example.AppBootstrap</param-value>
+      </init-param>
+  </filter>
 
-  <servlet-mapping>
-    <servlet-name>productServiceServlet</servlet-name>
-    <url-pattern>/api/products</url-pattern>
-  </servlet-mapping>
+  <filter-mapping>
+      <filter-name>SparkFilter</filter-name>
+      <url-pattern>/*</url-pattern>
+  </filter-mapping>
 
   <security-constraint>
       <web-resource-collection>

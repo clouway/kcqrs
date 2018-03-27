@@ -1,6 +1,7 @@
-package com.clouway.kcqrs.example
+package com.clouway.kcqrs.example.handler
 
 import com.clouway.kcqrs.core.EventHandler
+import com.clouway.kcqrs.example.domain.ProductRegisteredEvent
 import com.google.appengine.api.datastore.DatastoreServiceFactory
 import com.google.appengine.api.datastore.Entity
 import com.google.appengine.api.datastore.EntityNotFoundException
@@ -9,8 +10,8 @@ import com.google.appengine.api.datastore.KeyFactory
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class ProductRegisteredEventHandler : EventHandler<ProductServiceServlet.ProductRegisteredEvent> {
-    override fun handle(event: ProductServiceServlet.ProductRegisteredEvent) {
+class ProductRegisteredEventHandler : EventHandler<ProductRegisteredEvent> {
+    override fun handle(event: ProductRegisteredEvent) {
         println("got new ProductRegisteredEvent: $event")
         val dss = DatastoreServiceFactory.getDatastoreService()
 
