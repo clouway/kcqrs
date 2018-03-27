@@ -4,20 +4,20 @@ import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.*
 
-/**
- * @author Miroslav Genov (miroslav.genov@clouway.com)
- */
-/**
- * @author Miroslav Genov (miroslav.genov@clouway.com)
- */
-abstract class AggregateRootBase private constructor(protected @JvmField var uuid: UUID?) : AggregateRoot {
 
-  private var changes: ArrayList<Event> = ArrayList<Event>()
-  private var version: Int = 0
+/**
+ * AggregateRootBase is a Base class of all aggregate roots.
+ *
+ * @author Miroslav Genov (miroslav.genov@clouway.com)
+ */
+abstract class AggregateRootBase private constructor(@JvmField protected var uuid: String?) : AggregateRoot {
+
+  private var changes: ArrayList<Event> = ArrayList()
+  private var version = 0L
 
   constructor() : this(null)
 
-  override fun getId(): UUID? {
+  override fun getId(): String? {
     return uuid
   }
 
@@ -25,11 +25,11 @@ abstract class AggregateRootBase private constructor(protected @JvmField var uui
     changes.clear()
   }
 
-  override fun getExpectedVersion(): Int {
+  override fun getExpectedVersion(): Long {
     return version
   }
 
-  override fun getUncommittedChanges(): Iterable<Event> {
+  override fun getUncommittedChanges(): List<Event> {
     return if (changes.isEmpty()) listOf() else changes
   }
 

@@ -56,9 +56,9 @@ class SimpleMessageBus : MessageBus {
         val handler = commandHandlers[key] as CommandHandler<T>
         handler.handle(command)
     }
-
-    override fun <T : Event> handle(event: T) {
-        val key = event::class.java.name
+    
+    override fun handle(event: EventWithPayload) {
+        val key = event.event::class.java.name
 
         if (!eventHandlers.containsKey(key)) {
             interceptors.forEach { it.intercept(SimpleChain(event, listOf())) }
@@ -70,10 +70,11 @@ class SimpleMessageBus : MessageBus {
         if (!interceptors.isEmpty()) {
             val chain = SimpleChain(event, handlers)
             interceptors.forEach { it.intercept(chain) }
-        } else {
-            handlers.forEach {
-                it.handle(event)
-            }
+            return
+        }
+
+        handlers.forEach {
+            it.handle(event.event)
         }
     }
 

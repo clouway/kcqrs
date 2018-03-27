@@ -1,27 +1,26 @@
 package com.clouway.kcqrs.testing
 
-import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventPublisher
+import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.PublishErrorException
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class InMemoryEventPublisher : EventPublisher {
-    var events = mutableListOf<Event>()
+    var events = mutableListOf<EventWithPayload>()
     var nextPublishFailsWithError = false
 
-    override fun publish(events: Iterable<Event>) {
+    override fun publish(events: Iterable<EventWithPayload>) {
         if (nextPublishFailsWithError) {
             nextPublishFailsWithError = false
             throw PublishErrorException()
         }
-
         this.events.addAll(events)
     }
 
     fun cleanUp() {
-        events = mutableListOf<Event>()
+        events = mutableListOf()
     }
 
     fun pretendThatNextPublishWillFail() {

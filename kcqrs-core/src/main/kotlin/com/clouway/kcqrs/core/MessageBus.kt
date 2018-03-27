@@ -23,7 +23,7 @@ interface MessageBus {
      * @param aClass
      * @param handler
      */
-    fun  <T : Event> registerEventHandler(aClass: Class<T>, handler: EventHandler<T>)
+    fun <T : Event> registerEventHandler(aClass: Class<T>, handler: EventHandler<T>)
 
     /**
      * Register an interceptor through which all events will be intercepted.
@@ -42,34 +42,35 @@ interface MessageBus {
     fun <T : Command> send(command: T)
 
     /**
-     * Handles event using the registered event handlers.  
+     * Handles event using the registered event handlers.
      */
-    fun <T : Event> handle(event: T)
+    fun handle(event: EventWithPayload)
 
 }
 
 interface Interceptor {
 
-  interface Chain {
+    interface Chain {
 
-    fun event(): Event
+        fun event(): EventWithPayload
 
-    fun proceed(event: Event)
+        fun proceed(event: EventWithPayload)
 
-  }
+    }
 
-  fun intercept(chain: Chain)
+    fun intercept(chain: Chain)
 
 }
 
-class SimpleChain(val event: Event, private val eventHandlers: List<EventHandler<Event>>) : Interceptor.Chain {
-    override fun event(): Event {
+class SimpleChain(val event: EventWithPayload, private val eventHandlers: List<EventHandler<Event>>) : Interceptor.Chain {
+
+    override fun event(): EventWithPayload {
         return event
     }
 
-    override fun proceed(event: Event) {
+    override fun proceed(event: EventWithPayload) {
         eventHandlers.forEach {
-            it.handle(event)
+            it.handle(event.event)
         }
     }
 

@@ -30,14 +30,21 @@ repositories {
 
 dependencies {
   compile project(':kcqrs-appengine')
+  compile project(':kcqrs-client')
   compile project(':kcqrs-client-gson')
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
+  compile 'com.google.http-client:google-http-client:1.23.0'
+  
   providedCompile "com.google.appengine:appengine:$gae_version"
   compile "com.google.appengine:appengine-api-1.0-sdk:$gae_version"
   compile "com.google.appengine:appengine-tools-sdk:$gae_version"
   compile 'com.sparkjava:spark-kotlin:1.0.0-alpha'
   compile 'com.google.code.gson:gson:2.8.0'
+
+  testCompile group: 'org.eclipse.jetty', name: 'jetty-server', version: '8.1.8.v20121106'
+  testCompile group: 'org.eclipse.jetty', name: 'jetty-servlet', version: '8.1.8.v20121106'
+  testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
 gretty {

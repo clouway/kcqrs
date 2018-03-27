@@ -1,32 +1,46 @@
 package com.clouway.kcqrs.testing
 
-import com.clouway.kcqrs.core.Event
-import com.clouway.kcqrs.core.EventStore
-import java.util.*
+import com.clouway.kcqrs.core.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class InMemoryEventStore : EventStore {
-    private val idToEvents = mutableMapOf<UUID, MutableList<Event>>()
+    private val idToAggregate = mutableMapOf<String, StoredAggregate>()
 
-    override fun saveEvents(aggregateId: UUID, expectedVersion: Int, events: Iterable<Event>) {
-        if (!idToEvents.contains(aggregateId)) {
-            idToEvents[aggregateId] = mutableListOf()
+    override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
+        val aggregateId = saveOptions.aggregateId
+
+        if (!idToAggregate.contains(aggregateId)) {
+            idToAggregate[aggregateId] = StoredAggregate(aggregateId, aggregateType, mutableListOf())
         }
-        idToEvents[aggregateId]!!.addAll(events)
+
+        val aggregate = idToAggregate[aggregateId]!!
+        aggregate.events.addAll(events)
+
+        return SaveEventsResponse.Success(aggregateId, aggregate.events.size.toLong())
     }
 
-    override fun <T> getEvents(aggregateId: UUID, aggregateType: Class<T>): Iterable<Event> {
-        if (!idToEvents.containsKey(aggregateId)) {
-            return listOf()
+    override fun getEvents(aggregateId: String): GetEventsResponse {
+        if (!idToAggregate.containsKey(aggregateId)) {
+            return GetEventsResponse.AggregateNotFound
         }
-        return idToEvents[aggregateId]!!
+        val aggregate = idToAggregate[aggregateId]!!
+
+        return GetEventsResponse.Success(aggregateId, aggregate.aggregateType, null, aggregate.events.size.toLong(), aggregate.events)
     }
 
-    override fun revertEvents(aggregateId: UUID, events: Iterable<Event>) {
-        val newEvents = idToEvents[aggregateId]!!.filter { !events.contains(it) }.toMutableList()
-        idToEvents[aggregateId] = newEvents
+    override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {
+        val aggregate = idToAggregate[aggregateId]!!
+        val lastEventIndex = aggregate.events.size - count
+
+        val updatedEvents = aggregate.events.filterIndexed { index, _ -> index < lastEventIndex }.toMutableList()
+
+        idToAggregate[aggregateId] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents)
+
+        return RevertEventsResponse.Success
     }
 
 }
+
+private data class StoredAggregate(val aggregateId: String, val aggregateType: String, val events: MutableList<EventPayload>)

@@ -2,7 +2,7 @@ package com.clouway.kcqrs.example.adapter.http
 
 import com.clouway.kcqrs.core.AggregateNotFoundException
 import com.clouway.kcqrs.core.MessageBus
-import com.clouway.kcqrs.core.Repository
+import com.clouway.kcqrs.core.AggregateRepository
 import com.clouway.kcqrs.example.commands.RegisterProductCommand
 import com.clouway.kcqrs.example.domain.Product
 import spark.Request
@@ -23,16 +23,15 @@ class RegisterProductHandler(private val messageBus: MessageBus) : Route {
 
         return ProductAddedResponseDto(uuid.toString(), req.name)
     }
-
 }
 
 
-class GetProductHandler(private val eventRepository: Repository) : Route {
+class GetProductHandler(private val eventRepository: AggregateRepository) : Route {
     override fun handle(request: Request, response: Response): Any? {
         val id = request.params(":id")
 
         return try {
-            val product = eventRepository.getById(UUID.fromString(id), Product::class.java)
+            val product = eventRepository.getById(id, Product::class.java)
             ProductDto(product.name)
         } catch (ex: AggregateNotFoundException) {
             response.status(HttpServletResponse.SC_NOT_FOUND)
@@ -42,13 +41,13 @@ class GetProductHandler(private val eventRepository: Repository) : Route {
 
 }
 
-class ChangeProductNameHandler(private val eventRepository: Repository) : Route {
+class ChangeProductNameHandler(private val eventRepository: AggregateRepository) : Route {
     override fun handle(request: Request, response: Response): Any? {
         val id = request.params(":id")
 
         val req = request.readJson<ChangeProductNameRequest>(ChangeProductNameRequest::class.java)
 
-        val product = eventRepository.getById(UUID.fromString(id), Product::class.java)
+        val product = eventRepository.getById(id, Product::class.java)
         product.changeName(req.name)
 
         eventRepository.save(product)

@@ -2,19 +2,20 @@ package com.clouway.kcqrs.example.commands
 
 import com.clouway.kcqrs.core.AggregateNotFoundException
 import com.clouway.kcqrs.core.CommandHandler
-import com.clouway.kcqrs.core.Repository
+import com.clouway.kcqrs.core.AggregateRepository
 import com.clouway.kcqrs.example.domain.Product
 
 
-class RegisterProductCommandHandler(private val eventRepository: Repository) : CommandHandler<RegisterProductCommand> {
+class RegisterProductCommandHandler(private val eventRepository: AggregateRepository) : CommandHandler<RegisterProductCommand> {
 
     override fun handle(command: RegisterProductCommand) {
+        val id = command.id.toString()
         try {
-            eventRepository.getById(command.uuid, Product::class.java)
+            eventRepository.getById(id, Product::class.java)
 
         } catch (ex: AggregateNotFoundException) {
 
-            val product = Product(command.uuid, command.name)
+            val product = Product(id, command.name)
             eventRepository.save(product)
         }
     }
