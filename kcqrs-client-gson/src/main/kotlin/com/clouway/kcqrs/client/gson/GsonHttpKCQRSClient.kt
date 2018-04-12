@@ -3,6 +3,7 @@ package com.clouway.kcqrs.client.gson
 import com.clouway.kcqrs.client.HttpEventStore
 import com.clouway.kcqrs.client.SyncEventPublisher
 import com.clouway.kcqrs.core.*
+import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import java.net.URL
@@ -36,6 +37,7 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
 
         var identityProvider: IdentityProvider = IdentityProvider.Default()
         var eventPublisher: EventPublisher = SyncEventPublisher(messageBus)
+        var requestInitializer: HttpRequestInitializer = NopHttpRequestInitializer()
 
         fun build(init: Builder.() -> Unit): Kcqrs {
             init()
@@ -44,6 +46,7 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
                     endpoint,
                     transport.createRequestFactory { request ->
                         request.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+                        requestInitializer.initialize(request)
                     }
             )
 

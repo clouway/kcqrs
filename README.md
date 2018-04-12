@@ -149,6 +149,9 @@ private var cqrs = AppEngineKcqrs.Builder(configuration, messageFormatFactory).b
     kind = "Event"
     kcqrsHandlerEndpoint = "/worker/kcqrs"
     identityProvider = IdentityProvider.Default()
+    requestInitializer = HttpRequestInitializer { 
+        it.headers.setAuthorization("Bearer ${securityProvider.getAuthorizationToken()}")
+    }
 } 
 
 // Accessing message bus
