@@ -65,13 +65,13 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.saveEvents(aggregateId, listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId, 1L, "crm"))
+        store.saveEvents("Invoice", listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId, 1L, "crm"))
 
         val outputStream = ByteArrayOutputStream()
         transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 
         assertThat(outputStream.toString(), `is`(equalTo(
-                """{"aggregateId":"$aggregateId","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"topicName":"crm","version":1}""".trimIndent()
+                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"topicName":"crm","version":1}""".trimIndent()
         )))
     }
 

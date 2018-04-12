@@ -27,7 +27,7 @@ class HttpEventStore(private val endpoint: URL,
         try {
             val request = requestFactory.buildPostRequest(
                     GenericUrl(endpoint.toString() + "/v1/aggregates"),
-                    JsonHttpContent(GsonFactory.getDefaultInstance(), SaveEventsRequestDto(aggregateId, saveOptions.version, saveOptions.topicName, requestEvents))
+                    JsonHttpContent(GsonFactory.getDefaultInstance(), SaveEventsRequestDto(aggregateId, aggregateType, saveOptions.version, saveOptions.topicName, requestEvents))
             )
             request.throwExceptionOnExecuteError = false
 
@@ -113,9 +113,9 @@ internal data class EventPayloadDto(@Key @JvmField var kind: String, @Key @JvmFi
     constructor() : this("", 0L, "", "")
 }
 
-internal data class SaveEventsRequestDto(@Key @JvmField var aggregateId: String, @Key @JvmField var version: Long, @Key @JvmField var topicName: String, @Key @JvmField var events: List<EventPayloadDto>) : GenericJson() {
+internal data class SaveEventsRequestDto(@Key @JvmField var aggregateId: String, @Key @JvmField var aggregateType: String, @Key @JvmField var version: Long, @Key @JvmField var topicName: String, @Key @JvmField var events: List<EventPayloadDto>) : GenericJson() {
     @Suppress("UNUSED")
-    constructor() : this("", 0L, "", mutableListOf())
+    constructor() : this("", "", 0L, "", mutableListOf())
 }
 
 internal data class SaveEventsResponseDto(@Key @JvmField var aggregateId: String, @Key @JvmField var version: Long) : GenericJson() {
