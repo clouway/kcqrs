@@ -39,6 +39,9 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                     throw ex
                 }
             }
+            is SaveEventsResponse.EventCollision ->{
+                throw EventCollisionException(aggregate.getId()!!, response.expectedVersion)
+            }
             else -> throw IllegalStateException("unable to save events")
         }
     }
@@ -79,6 +82,9 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
 
                 return aggregate
 
+            }
+            is GetEventsResponse.AggregateNotFound -> {
+                throw AggregateNotFoundException(id)
             }
             else -> throw IllegalStateException("unknown state")
         }

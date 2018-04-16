@@ -4,11 +4,11 @@ import java.util.*
 
 /**
  * EventStore is an abstraction of the persistence layer of the EventStore.
- * 
+ *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 interface EventStore {
-    
+
     /**
      * Saves the provided list of events in to the aggregate.
      *
