@@ -43,6 +43,10 @@ class HttpEventStore(private val endpoint: URL,
                 return SaveEventsResponse.EventCollision(aggregateId, resp.version)
             }
 
+            if (response.statusCode == HttpStatusCodes.STATUS_CODE_BAD_GATEWAY) {
+                return SaveEventsResponse.Error("Unable to publish event")
+            }
+
         } catch (ex: IOException) {
             return SaveEventsResponse.ErrorInCommunication
         }

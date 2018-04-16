@@ -1,15 +1,21 @@
 package com.clouway.kcqrs.testing
 
 import com.clouway.kcqrs.core.*
+import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class InMemoryEventStore : EventStore {
     private val idToAggregate = mutableMapOf<String, StoredAggregate>()
+    private val stubbedResponses = LinkedList<SaveEventsResponse>()
 
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
         val aggregateId = saveOptions.aggregateId
+
+        if (stubbedResponses.size > 0) {
+            return stubbedResponses.pop()
+        }
 
         if (!idToAggregate.contains(aggregateId)) {
             idToAggregate[aggregateId] = StoredAggregate(aggregateId, aggregateType, mutableListOf())
@@ -39,6 +45,10 @@ class InMemoryEventStore : EventStore {
         idToAggregate[aggregateId] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents)
 
         return RevertEventsResponse.Success
+    }
+
+    fun pretendThatNextSaveWillReturn(response: SaveEventsResponse) {
+        stubbedResponses.add(response)
     }
 
 }

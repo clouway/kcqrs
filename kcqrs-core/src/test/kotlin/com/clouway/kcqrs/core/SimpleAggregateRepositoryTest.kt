@@ -77,6 +77,17 @@ class SimpleAggregateRepositoryTest {
         ))
     }
 
+    @Test(expected = EventCollisionException::class)
+    fun eventCollision() {
+        val invoice = Invoice(invoiceId(), "John")
+        val eventStore = InMemoryEventStore()
+        val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), InMemoryEventPublisher(), configuration)
+
+        eventStore.pretendThatNextSaveWillReturn(SaveEventsResponse.EventCollision(invoice.getId()!!, 3L))
+
+        eventRepository.save(invoice, anyIdentity)
+    }
+
     @Test
     fun rollbackEventsIfSendFails() {
         val invoice = Invoice(invoiceId(), "John")
@@ -119,6 +130,18 @@ class SimpleAggregateRepositoryTest {
             val response = eventStore.getEvents(invoice.getId()!!) as GetEventsResponse.Success
             assertThat(response.events.size, `is`(1))
         }
+    }
+
+    @Test(expected = AggregateNotFoundException::class)
+    fun getUnknownAggregate() {
+        val eventRepository = SimpleAggregateRepository(
+                InMemoryEventStore(),
+                TestMessageFormat(),
+                InMemoryEventPublisher(),
+                configuration
+        )
+
+        eventRepository.getById("::any id::", Invoice::class.java)
     }
 
     private fun invoiceId() = UUID.randomUUID().toString()

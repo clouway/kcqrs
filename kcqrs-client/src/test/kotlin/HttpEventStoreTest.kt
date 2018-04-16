@@ -47,7 +47,7 @@ class HttpEventStoreTest {
 
         assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.Success(aggregateId, 4))))
     }
-    
+
     @Test
     fun saveEventsPayloadIsSendToTheServer() {
         val aggregateId = randomAggregateId()
@@ -97,6 +97,29 @@ class HttpEventStoreTest {
                 SaveOptions(aggregateId)) as SaveEventsResponse.ErrorInCommunication
 
         assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.ErrorInCommunication)))
+    }
+
+    @Test
+    fun unableToPublishEvent() {
+        val aggregateId = randomAggregateId()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpRequest(MockLowLevelHttpRequest()
+                        .setResponse(MockLowLevelHttpResponse()
+                                .setStatusCode(HttpStatusCodes.STATUS_CODE_BAD_GATEWAY)
+                        ))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val response = store.saveEvents(
+                "Order",
+                listOf(EventPayload("::kind::", 1L, "::user id::", Binary("::event data::"))),
+                SaveOptions(aggregateId)) as SaveEventsResponse.Error
+
+        assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.Error("Unable to publish event"))))
     }
 
     @Test
@@ -223,9 +246,9 @@ class HttpEventStoreTest {
                         aggregateId,
                         "Order",
                         null,
-                4L,
-                listOf()
-        )
+                        4L,
+                        listOf()
+                )
         ))
     }
 
