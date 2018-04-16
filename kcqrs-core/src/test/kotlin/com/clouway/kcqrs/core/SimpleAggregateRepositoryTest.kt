@@ -121,6 +121,13 @@ class SimpleAggregateRepositoryTest {
         }
     }
 
+    @Test(expected = AggregateNotFoundException::class)
+    fun aggregateNotFound() {
+        val eventPublisher = InMemoryEventPublisher()
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), eventPublisher, configuration)
+        eventRepository.getById(invoiceId(), Invoice::class.java)
+    }
+
     private fun invoiceId() = UUID.randomUUID().toString()
 
     data class InvoiceCreatedEvent(@JvmField val invoiceId: String, @JvmField val customerName: String) : Event

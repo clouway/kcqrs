@@ -80,6 +80,9 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 return aggregate
 
             }
+            is GetEventsResponse.AggregateNotFound -> {
+                throw AggregateNotFoundException(id)
+            }
             else -> throw IllegalStateException("unknown state")
         }
     }
