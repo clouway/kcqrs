@@ -33,8 +33,8 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
     class Builder(private val configuration: Configuration,
                   private val endpoint: URL,
                   private val transport: HttpTransport) {
-        val messageBus: MessageBus = SimpleMessageBus()
 
+        val messageBus = SimpleMessageBus()
         var identityProvider: IdentityProvider = IdentityProvider.Default()
         var eventPublisher: EventPublisher = SyncEventPublisher(messageBus)
         var requestInitializer: HttpRequestInitializer = NopHttpRequestInitializer()
@@ -49,8 +49,7 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
                         requestInitializer.initialize(request)
                     }
             )
-
-            val messageBus = SimpleMessageBus()
+            
             val messageFormat = GsonMessageFormatFactory().createMessageFormat()
 
             val aggregateRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
