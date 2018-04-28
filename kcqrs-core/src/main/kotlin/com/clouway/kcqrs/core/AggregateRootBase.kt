@@ -10,7 +10,7 @@ import java.util.*
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-abstract class AggregateRootBase private constructor(@JvmField protected var uuid: String?) : AggregateRoot {
+abstract class AggregateRootBase private constructor(@JvmField protected var aggregateId: String?) : AggregateRoot {
 
   private var changes: ArrayList<Event> = ArrayList()
   private var version = 0L
@@ -18,7 +18,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var uui
   constructor() : this(null)
 
   override fun getId(): String? {
-    return uuid
+    return aggregateId
   }
 
   override fun markChangesAsCommitted() {

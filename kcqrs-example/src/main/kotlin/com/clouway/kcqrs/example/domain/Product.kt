@@ -20,7 +20,7 @@ class Product(@JvmField var name: String) : AggregateRootBase() {
     }
 
     fun apply(event: ProductRegisteredEvent) {
-        this.uuid = event.id
+        this.aggregateId = event.id
         this.name = event.name
     }
 

@@ -163,7 +163,7 @@ class SimpleAggregateRepositoryTest {
         }
 
         fun apply(event: InvoiceCreatedEvent) {
-            uuid = event.invoiceId
+            aggregateId = event.invoiceId
             customerName = event.customerName
         }
 

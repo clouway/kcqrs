@@ -8,9 +8,9 @@ package com.clouway.kcqrs.core
  */
 interface AggregateRoot {
     /**
-     * get the Id
+     * Gets the ID of the aggregate
      *
-     * @return
+     * @return the ID of the aggregate
      */
     fun getId(): String?
 

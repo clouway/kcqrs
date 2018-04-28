@@ -55,7 +55,7 @@ internal class Order private constructor(var customerName: String) : AggregateRo
     }
 
     fun apply(event: OrderCreatedEvent) {
-        uuid = event.id
+        aggregateId = event.id
         customerName = event.customerName
     }
 
