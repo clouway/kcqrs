@@ -31,9 +31,30 @@ class InMemoryEventStore : EventStore {
         if (!idToAggregate.containsKey(aggregateId)) {
             return GetEventsResponse.AggregateNotFound
         }
+
         val aggregate = idToAggregate[aggregateId]!!
 
-        return GetEventsResponse.Success(aggregateId, aggregate.aggregateType, null, aggregate.events.size.toLong(), aggregate.events)
+        return GetEventsResponse.Success(listOf(Aggregate(
+                aggregateId,
+                aggregate.aggregateType,
+                null,
+                aggregate.events.size.toLong(),
+                aggregate.events)
+        ))
+    }
+
+    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+        val aggregates = aggregateIds.map {
+            val aggregate = idToAggregate[it]!!
+            Aggregate(
+                    it,
+                    aggregate.aggregateType,
+                    null,
+                    aggregate.events.size.toLong(),
+                    aggregate.events
+            )
+        }
+        return GetEventsResponse.Success(aggregates)
     }
 
     override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {

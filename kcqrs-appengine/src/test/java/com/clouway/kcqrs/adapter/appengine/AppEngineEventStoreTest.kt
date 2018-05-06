@@ -40,17 +40,18 @@ class AppEngineEventStoreTest {
         val response = aggregateBase.getEvents(result.aggregateId)
 
         when (response) {
-
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
                         GetEventsResponse.Success(
-                                response.aggregateId,
-                                "Invoice",
-                                null,
-                                1,
-                                listOf(
-                                        EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))
-                                )
+                                listOf(Aggregate(
+                                        result.aggregateId,
+                                        "Invoice",
+                                        null,
+                                        1,
+                                        listOf(
+                                                EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))
+                                        )
+                                ))
                         )
                         ))))
 
@@ -73,16 +74,74 @@ class AppEngineEventStoreTest {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
                         GetEventsResponse.Success(
-                                response.aggregateId,
-                                "Order",
-                                null,
-                                2,
-                                listOf(
-                                        EventPayload("::kind1::", 1L, "::user 1::", Binary("event1-data")),
-                                        EventPayload("::kind2::", 2L, "::user 2::", Binary("event2-data"))
-                                )
+                                listOf(Aggregate(
+                                        result.aggregateId,
+                                        "Order",
+                                        null,
+                                        2,
+                                        listOf(
+                                                EventPayload("::kind1::", 1L, "::user 1::", Binary("event1-data")),
+                                                EventPayload("::kind2::", 2L, "::user 2::", Binary("event2-data"))
+                                        )
+                                ))
+
                         ))
                 )))
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
+
+    @Test
+    fun getMultipleAggregates() {
+        val result1 = aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
+        ) as SaveEventsResponse.Success
+
+        val result2 = aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
+        ) as SaveEventsResponse.Success
+
+        val response = aggregateBase.getEvents(listOf(result1.aggregateId, result2.aggregateId))
+
+        when (response) {
+            is GetEventsResponse.Success -> {
+                assertThat(response.aggregates, `is`(hasItems(
+                        Aggregate(
+                                result1.aggregateId,
+                                "Invoice",
+                                null,
+                                1,
+                                listOf(
+                                        EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))
+                                )
+                        ),
+                        Aggregate(
+                                result2.aggregateId,
+                                "Invoice",
+                                null,
+                                1,
+                                listOf(
+                                        EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))
+                                )
+                        ))))
+
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
+
+    @Test
+    fun getMultipleAggregatesButNoneMatched() {
+        val response = aggregateBase.getEvents(listOf("::id 1::", "::id 2::"))
+
+        when (response) {
+            is GetEventsResponse.Success -> {
+                assertThat(response, `is`(equalTo((
+                        GetEventsResponse.Success(
+                                listOf())
+                        ))))
+
             }
             else -> fail("got unknown response when fetching stored events")
         }
@@ -131,7 +190,7 @@ class AppEngineEventStoreTest {
 
                 val resp = aggregateBase.getEvents(aggregateId) as GetEventsResponse.Success
                 assertThat(resp, `is`(equalTo(
-                        GetEventsResponse.Success(aggregateId,
+                        GetEventsResponse.Success(listOf(Aggregate(aggregateId,
                                 "Task",
                                 null,
                                 3,
@@ -139,7 +198,7 @@ class AppEngineEventStoreTest {
                                         EventPayload("::kind 1::", 1L, "::user1::", Binary("data0")),
                                         EventPayload("::kind 2::", 2L, "::user1::", Binary("data1")),
                                         EventPayload("::kind 3::", 3L, "::user1::", Binary("data2"))
-                                ))
+                                ))))
                 )))
             }
             else -> fail("got un-expected response '$response' when reverting saved events")

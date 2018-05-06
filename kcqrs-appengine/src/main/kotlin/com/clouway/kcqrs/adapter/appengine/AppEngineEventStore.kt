@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat) : EventStore {
+
     /**
      * Entity Kind used for storing of snapshots.
      */
@@ -98,6 +99,46 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         }
     }
 
+    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+        val dataStore = DatastoreServiceFactory.getDatastoreService()
+        val snapshotKeys = aggregateIds.map { KeyFactory.createKey(snapshotKind, it) }
+
+        val snapshotEntities = try {
+            dataStore.get(snapshotKeys)
+        } catch (ex: EntityNotFoundException) {
+            return GetEventsResponse.SnapshotNotFound
+        }
+
+        val keyToAggregateId = mutableMapOf<Key, String>()
+        val aggregateKeys = snapshotEntities.values.map {
+            val key = aggregateKey(it.key.name, it.getProperty("aggregateIndex") as Long? ?: 0)
+            keyToAggregateId[key] = it.key.name
+            key
+        }
+
+        val aggregateEntities = dataStore.get(aggregateKeys)
+
+        val aggregates = mutableListOf<Aggregate>()
+
+        aggregateEntities.keys.forEach {
+            val aggregateEntity = aggregateEntities[it]!!
+
+            @Suppress("UNCHECKED_CAST")
+            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as List<String>
+            val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
+            val aggregateType = aggregateEntity.getProperty(aggregateTypeProperty) as String
+            val aggregateId = keyToAggregateId[aggregateEntity.key]!!
+
+            val events = aggregateEvents.map {
+                messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+            }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
+
+            aggregates.add(Aggregate(aggregateId, aggregateType, null, currentVersion, events))
+        }
+
+        return GetEventsResponse.Success(aggregates)
+    }
+
     override fun getEvents(aggregateId: String): GetEventsResponse {
         val dataStore = DatastoreServiceFactory.getDatastoreService()
 
@@ -131,7 +172,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
         }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
 
-        return GetEventsResponse.Success(aggregateId, aggregateType, snapshot, currentVersion, events)
+        return GetEventsResponse.Success(listOf(Aggregate(aggregateId, aggregateType, snapshot, currentVersion, events)))
     }
 
     override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {
