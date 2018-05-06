@@ -27,6 +27,14 @@ interface EventStore {
     fun getEvents(aggregateId: String): GetEventsResponse
 
     /**
+     * Retrieves the events that are saved for the stored aggregates.
+     *
+     * @param aggregateIds a list of IDs of the aggregates which events should be retrieved
+     * @return a response of events for each of the requested aggregates
+     */
+    fun getEvents(aggregateIds: List<String>): GetEventsResponse
+
+    /**
      * Reverts last events that are stored for the aggregate.
      */
     fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse
@@ -68,7 +76,7 @@ sealed class SaveEventsResponse {
 
 sealed class GetEventsResponse {
 
-    data class Success(val aggregateId: String, val aggregateType: String, val snapshot: Snapshot?, val version: Long, val events: List<EventPayload>) : GetEventsResponse()
+    data class Success(val aggregates: List<Aggregate>) : GetEventsResponse()
 
     object SnapshotNotFound : GetEventsResponse()
 
@@ -94,6 +102,7 @@ sealed class RevertEventsResponse {
     data class Error(val message: String) : RevertEventsResponse()
 }
 
+data class Aggregate(val aggregateId: String, val aggregateType: String, val snapshot: Snapshot?, val version: Long, val events: List<EventPayload>)
 
 data class Snapshot(private val version: Long, private val data: Binary)
 

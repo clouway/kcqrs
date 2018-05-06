@@ -39,7 +39,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                     throw ex
                 }
             }
-            is SaveEventsResponse.EventCollision ->{
+            is SaveEventsResponse.EventCollision -> {
                 throw EventCollisionException(aggregate.getId()!!, response.expectedVersion)
             }
             else -> throw IllegalStateException("unable to save events")
@@ -59,11 +59,14 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 adapter.fetchMetadata(type)
 
                 val history = mutableListOf<Event>()
-                response.events.forEach {
-                    val eventType = Class.forName(adapter.eventType(it.kind))
 
-                    val event = messageFormat.parse<Event>(ByteArrayInputStream(it.data.payload), eventType)
-                    history.add(event)
+                response.aggregates.forEach {
+                    it.events.forEach {
+                        val eventType = Class.forName(adapter.eventType(it.kind))
+
+                        val event = messageFormat.parse<Event>(ByteArrayInputStream(it.data.payload), eventType)
+                        history.add(event)
+                    }
                 }
 
                 /*

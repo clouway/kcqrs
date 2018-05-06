@@ -7,8 +7,7 @@ import com.google.api.client.testing.http.MockHttpTransport
 import com.google.api.client.testing.http.MockLowLevelHttpRequest
 import com.google.api.client.testing.http.MockLowLevelHttpResponse
 import org.hamcrest.Matchers
-import org.hamcrest.Matchers.`is`
-import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.*
 import org.jmock.integration.junit4.JUnitRuleMockery
 import org.junit.Assert.assertThat
 import org.junit.Rule
@@ -166,15 +165,18 @@ class HttpEventStoreTest {
         val aggregateId = randomAggregateId()
 
         val responsePayload = """
-            {
-                "aggregateId": "$aggregateId",
-                "aggregateType": "Invoice",
-                "version": 4,
-                "events": [
-                    {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"},
-                    {"kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"},
-                    {"kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
-                ]
+            {"aggregates": [
+                  {
+                    "aggregateId": "$aggregateId",
+                    "aggregateType": "Invoice",
+                    "version": 4,
+                    "events": [
+                        {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"},
+                        {"kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"},
+                        {"kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
+                    ]
+                  }
+              ]
             }
             """.trimIndent()
 
@@ -189,8 +191,8 @@ class HttpEventStoreTest {
         })
 
         val result = store.getEvents(aggregateId) as GetEventsResponse.Success
-        assertThat(result, equalTo(
-                GetEventsResponse.Success(
+        assertThat(result.aggregates, hasItems(
+                Aggregate(
                         aggregateId,
                         "Invoice",
                         null,
@@ -200,8 +202,7 @@ class HttpEventStoreTest {
                                 EventPayload("::kind 2::", 2L, "::user::", Binary("::event data::")),
                                 EventPayload("::kind 3::", 3L, "::user::", Binary("::event data::"))
                         )
-                )
-        ))
+                )))
     }
 
     @Test
@@ -227,8 +228,11 @@ class HttpEventStoreTest {
         val aggregateId = randomAggregateId()
 
         val responsePayload = """
+            {"aggregates":
+                [
                    {"aggregateId": "$aggregateId","aggregateType": "Order","version": 4, "events": []}
-                   """.trimIndent()
+                ]
+            }""".trimIndent()
 
         val transport = MockHttpTransport.Builder()
                 .setLowLevelHttpResponse(MockLowLevelHttpResponse()
@@ -242,13 +246,7 @@ class HttpEventStoreTest {
 
         val result = store.getEvents(aggregateId) as GetEventsResponse.Success
         assertThat(result, Matchers.equalTo(
-                GetEventsResponse.Success(
-                        aggregateId,
-                        "Order",
-                        null,
-                        4L,
-                        listOf()
-                )
+                GetEventsResponse.Success(listOf(Aggregate(aggregateId, "Order", null, 4L, listOf())))
         ))
     }
 

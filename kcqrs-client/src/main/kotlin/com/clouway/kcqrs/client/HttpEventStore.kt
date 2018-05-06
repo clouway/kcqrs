@@ -54,8 +54,10 @@ class HttpEventStore(private val endpoint: URL,
         return SaveEventsResponse.Error("Generic Error")
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v1/aggregates/$aggregateId"))
+    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+        val ids = aggregateIds.joinToString(",")
+
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?ids=$ids"))
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -68,9 +70,51 @@ class HttpEventStore(private val endpoint: URL,
             if (response.isSuccessStatusCode) {
                 val resp = response.parseAs(GetEventsResponseDto::class.java)
 
-                val events = resp.events.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload)) }
+                val aggregates = resp.aggregates.map {
+                    Aggregate(
+                            it.aggregateId,
+                            it.aggregateType,
+                            null,
+                            it.version,
+                            it.events.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload)) }
+                    )
+                }
 
-                return GetEventsResponse.Success(aggregateId, resp.aggregateType, null, resp.version, events)
+                return GetEventsResponse.Success(aggregates)
+            }
+
+            return GetEventsResponse.Error("got unknown error")
+
+        } catch (ex: IOException) {
+            return GetEventsResponse.ErrorInCommunication
+        }
+    }
+
+    override fun getEvents(aggregateId: String): GetEventsResponse {
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId"))
+        request.throwExceptionOnExecuteError = false
+        try {
+            val response = request.execute()
+
+            // Aggregate was not found and no events cannot be returned
+            if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
+                return GetEventsResponse.AggregateNotFound
+            }
+
+            if (response.isSuccessStatusCode) {
+                val resp = response.parseAs(GetEventsResponseDto::class.java)
+
+                val aggregates = resp.aggregates.map {
+                    Aggregate(
+                            it.aggregateId,
+                            it.aggregateType,
+                            null,
+                            it.version,
+                            it.events.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload)) }
+                    )
+                }
+
+                return GetEventsResponse.Success(aggregates)
             }
 
             return GetEventsResponse.Error("got unknown error")
@@ -107,9 +151,13 @@ class HttpEventStore(private val endpoint: URL,
 
 }
 
-internal data class GetEventsResponseDto(@Key @JvmField var aggregateId: String, @Key @JvmField var aggregateType: String, @Key @JvmField var version: Long, @Key @JvmField var topic: String, @Key @JvmField var events: List<EventPayloadDto>) : GenericJson() {
+internal data class GetEventsResponseDto(@Key @JvmField var aggregates: List<AggregateDto>) : GenericJson() {
     @Suppress("UNUSED")
-    constructor() : this("", "", 0L, "", mutableListOf())
+    constructor() : this(mutableListOf())
+}
+
+internal data class AggregateDto(@Key @JvmField var aggregateId: String, @Key @JvmField var aggregateType: String, @Key @JvmField var version: Long, @Key @JvmField var topic: String, @Key @JvmField var events: List<EventPayloadDto>) {
+    constructor() : this("", "", 0L, "", listOf())
 }
 
 internal data class EventPayloadDto(@Key @JvmField var kind: String, @Key @JvmField var timestamp: Long, @Key @JvmField var identityId: String, @Key @JvmField var payload: String) : GenericJson() {
