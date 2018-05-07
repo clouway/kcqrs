@@ -46,6 +46,49 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
     }
 
+    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String,T> {
+        /*
+         * Get the events from the event store
+        */
+        val response = eventStore.getEvents(ids)
+        when (response) {
+            is GetEventsResponse.Success -> {
+
+                val adapter = AggregateAdapter<T>("apply")
+                adapter.fetchMetadata(type)
+                val result = mutableMapOf<String, T>()
+                response.aggregates.forEach {
+                    val history = mutableListOf<Event>()
+                    it.events.forEach {
+                        val eventType = Class.forName(adapter.eventType(it.kind))
+
+                        val event = messageFormat.parse<Event>(ByteArrayInputStream(it.data.payload), eventType)
+                        history.add(event)
+                    }
+
+                    /*
+                     * Create a new instance of the aggregate
+                    */
+                    val aggregate: T
+                    try {
+                        aggregate = type.newInstance()
+                    } catch (e: InstantiationException) {
+                        throw HydrationException(it.aggregateId, "target type: '${type.name}' cannot be instantiated")
+                    } catch (e: IllegalAccessException) {
+                        throw HydrationException(it.aggregateId, "target type: '${type.name}' has no default constructor")
+                    }
+
+                    aggregate.loadFromHistory(history)
+
+                    result[it.aggregateId] = aggregate
+                }
+
+                return result
+
+            }
+            else -> throw IllegalStateException("unknown state")
+        }
+    }
 
     override fun <T : AggregateRoot> getById(id: String, type: Class<T>): T {
         /*

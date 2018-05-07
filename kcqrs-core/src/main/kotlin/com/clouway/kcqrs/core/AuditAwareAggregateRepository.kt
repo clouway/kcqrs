@@ -27,4 +27,14 @@ interface AuditAwareAggregateRepository {
     @Throws(HydrationException::class, AggregateNotFoundException::class)
     fun <T : AggregateRoot> getById(id: String, type: Class<T>): T
 
+    /**
+     * Get a set of aggregates by providing a list of ids.
+     *
+     * @param ids the list of ID's
+     * @return a list of aggregates or empty list if none of them is matching
+     * @throws HydrationException
+     */
+    @Throws(HydrationException::class, AggregateNotFoundException::class)
+    fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T>
+
 }

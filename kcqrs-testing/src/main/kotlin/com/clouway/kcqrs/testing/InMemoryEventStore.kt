@@ -44,7 +44,7 @@ class InMemoryEventStore : EventStore {
     }
 
     override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
-        val aggregates = aggregateIds.map {
+        val aggregates = aggregateIds.filter { idToAggregate.containsKey(it) }.map {
             val aggregate = idToAggregate[it]!!
             Aggregate(
                     it,
