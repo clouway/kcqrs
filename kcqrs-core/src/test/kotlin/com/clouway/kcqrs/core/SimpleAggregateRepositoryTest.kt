@@ -144,13 +144,48 @@ class SimpleAggregateRepositoryTest {
         eventRepository.getById("::any id::", Invoice::class.java)
     }
 
+    @Test
+    fun getMultipleAggregates() {
+        val firstInvoice = Invoice(invoiceId(), "John")
+        val secondInvoice = Invoice(invoiceId(), "Peter")
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        eventRepository.save(firstInvoice, anyIdentity)
+        eventRepository.save(secondInvoice, anyIdentity)
+
+        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, secondInvoice.getId()!!), Invoice::class.java)
+        assertThat(loadedInvoices, `is`(equalTo(mapOf(
+                firstInvoice.getId()!! to firstInvoice,
+                secondInvoice.getId()!! to secondInvoice
+        ))))
+    }
+
+    @Test
+    fun getMultipleInvoicesOneFoundOneNot() {
+        val firstInvoice = Invoice(invoiceId(), "John")
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        eventRepository.save(firstInvoice, anyIdentity)
+
+        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, "::any unknown id::"), Invoice::class.java)
+        assertThat(loadedInvoices, `is`(equalTo(mapOf(
+                firstInvoice.getId()!! to firstInvoice
+        ))))
+    }
+    
+    @Test
+    fun getMultipleAggregatesAndNothingIsReturned() {
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+
+        val invoices = eventRepository.getByIds(listOf("::id 1::", "::id 2::"), Invoice::class.java)
+        assertThat(invoices, `is`(equalTo(mapOf())))
+    }
+
     private fun invoiceId() = UUID.randomUUID().toString()
 
     data class InvoiceCreatedEvent(@JvmField val invoiceId: String, @JvmField val customerName: String) : Event
 
     data class ChangeCustomerName(@JvmField val invoiceId: String, @JvmField val newCustomerName: String) : Event
 
-    class Invoice private constructor(@JvmField var customerName: String) : AggregateRootBase() {
+    data class Invoice private constructor(@JvmField var customerName: String) : AggregateRootBase() {
 
         constructor() : this("")
 
