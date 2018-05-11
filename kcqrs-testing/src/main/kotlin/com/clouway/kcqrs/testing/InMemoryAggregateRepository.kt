@@ -35,13 +35,10 @@ class InMemoryAggregateRepository : AggregateRepository {
     }
 
     override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T> {
-        val foundAggregates = mutableMapOf<String, T>()
-        ids.forEach {
-            val events = aggregateIdToEvents[it]
+        return ids.filter { aggregateIdToEvents.containsKey(it) }.map {
             val instance = type.newInstance() as T
-            instance.loadFromHistory(events!!)
-            foundAggregates[it] = instance
-        }
-        return foundAggregates
+            instance.loadFromHistory(aggregateIdToEvents[it]!!)
+            Pair(it, instance)
+        }.toMap()
     }
 }

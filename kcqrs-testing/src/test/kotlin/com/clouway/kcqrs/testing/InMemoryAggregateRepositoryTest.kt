@@ -52,6 +52,25 @@ class InMemoryAggregateRepositoryTest {
         assertThat(loaded["1"]!!.customerName, `is`(equalTo("Customer A")))
         assertThat(loaded["2"]!!.customerName, `is`(equalTo("Customer B")))
     }
+
+    @Test
+    fun aggregatesNotFound() {
+        val aggregateRepository = InMemoryAggregateRepository()
+
+        val loaded = aggregateRepository.getByIds(listOf("1", "2"), Order::class.java)
+        assertThat(loaded.size, `is`(0))
+    }
+
+    @Test
+    fun getOnlyExistAggregates() {
+        val aggregateRepository = InMemoryAggregateRepository()
+
+        aggregateRepository.save(Order("2", "Customer B"))
+
+        val loaded = aggregateRepository.getByIds(listOf("1", "2"), Order::class.java)
+        assertThat(loaded.size, `is`(1))
+        assertThat(loaded["2"]!!.customerName, `is`(equalTo("Customer B")))
+    }
 }
 
 internal class Order private constructor(var customerName: String) : AggregateRootBase() {
