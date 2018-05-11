@@ -34,7 +34,7 @@ interface AggregateRepository {
      * @return a list of aggregates or empty list if none of them is matching
      * @throws HydrationException
      */
-    @Throws(HydrationException::class, AggregateNotFoundException::class)
+    @Throws(HydrationException::class)
     fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T>
 
 }
