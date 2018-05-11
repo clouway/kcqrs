@@ -16,4 +16,7 @@ class AuthoredAggregateRepository(private val identityProvider: IdentityProvider
         return auditAwareAggregateRepository.getById(id, type)
     }
 
+    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T> {
+        return auditAwareAggregateRepository.getByIds(ids, type)
+    }
 }

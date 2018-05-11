@@ -19,7 +19,7 @@ class InMemoryAggregateRepository : AggregateRepository {
         } else {
             aggregateIdToEvents[aggregate.getId()!!] = changes
         }
-        
+
         aggregate.markChangesAsCommitted()
     }
 
@@ -32,5 +32,16 @@ class InMemoryAggregateRepository : AggregateRepository {
         val instance = type.newInstance() as T
         instance.loadFromHistory(events!!)
         return instance
+    }
+
+    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T> {
+        val foundAggregates = mutableMapOf<String, T>()
+        ids.forEach {
+            val events = aggregateIdToEvents[it]
+            val instance = type.newInstance() as T
+            instance.loadFromHistory(events!!)
+            foundAggregates[it] = instance
+        }
+        return foundAggregates
     }
 }
