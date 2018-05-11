@@ -40,6 +40,18 @@ class InMemoryAggregateRepositoryTest {
         assertThat(loadedAfterChange.customerName, `is`(equalTo("New Name")))
     }
 
+    @Test
+    fun getManyAggregates() {
+        val aggregateRepository = InMemoryAggregateRepository()
+
+        aggregateRepository.save(Order("1", "Customer A"))
+        aggregateRepository.save(Order("2", "Customer B"))
+
+        val loaded = aggregateRepository.getByIds(listOf("1", "2"), Order::class.java)
+        assertThat(loaded.size, `is`(2))
+        assertThat(loaded["1"]!!.customerName, `is`(equalTo("Customer A")))
+        assertThat(loaded["2"]!!.customerName, `is`(equalTo("Customer B")))
+    }
 }
 
 internal class Order private constructor(var customerName: String) : AggregateRootBase() {
