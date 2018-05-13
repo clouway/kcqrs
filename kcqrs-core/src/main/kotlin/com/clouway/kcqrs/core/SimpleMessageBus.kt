@@ -11,7 +11,7 @@ class SimpleMessageBus : MessageBus {
     /**
      * List of command handlers per command
      */
-    private val commandHandlers: MutableMap<String, CommandHandler<Command>> = mutableMapOf()
+    private val commandHandlers: MutableMap<String, ValidatedCommandHandler<Command>> = mutableMapOf()
 
     /**                  `
      * List of event handlers per event
@@ -25,11 +25,12 @@ class SimpleMessageBus : MessageBus {
 
 
     @SuppressWarnings("unchecked")
-    override fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>) {
+    override fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>, validation: Validation<T>) {
         val key = aClass.name
 
+        val commandHandler = ValidatedCommandHandler(handler, validation)
         @Suppress("UNCHECKED_CAST")
-        commandHandlers[key] = handler as CommandHandler<Command>
+        commandHandlers[key] = commandHandler as ValidatedCommandHandler<Command>
     }
 
     override fun <T : Event> registerEventHandler(aClass: Class<T>, handler: EventHandler<T>) {
@@ -53,8 +54,14 @@ class SimpleMessageBus : MessageBus {
             return
         }
 
-        val handler = commandHandlers[key] as CommandHandler<T>
-        handler.handle(command)
+        val handler = commandHandlers[key] as ValidatedCommandHandler<T>
+
+        val errors = handler.validation.validate(command)
+        if (!errors.isEmpty()) {
+            throw ViolationErrorException(errors)
+        }
+
+        handler.handler.handle(command)
     }
     
     override fun handle(event: EventWithPayload) {
@@ -80,3 +87,5 @@ class SimpleMessageBus : MessageBus {
 
 
 }
+
+internal data class ValidatedCommandHandler<in T : Command>(val handler: CommandHandler<T>, val validation: Validation<T>)
