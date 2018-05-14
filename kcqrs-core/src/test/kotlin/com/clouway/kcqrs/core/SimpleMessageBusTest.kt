@@ -3,6 +3,7 @@ package com.clouway.kcqrs.core
 
 import org.hamcrest.CoreMatchers.*
 import org.junit.Assert.assertThat
+import org.junit.Assert.fail
 import org.junit.Test
 import java.util.*
 
@@ -60,6 +61,29 @@ class SimpleMessageBusTest {
         msgBus.send(changeCustomerNameAction)
 
         assertThat(handler.lastCommand, `is`(changeCustomerNameAction))
+    }
+
+    @Test
+    fun sendIsValidatingReceivedCommand() {
+        val msgBus = SimpleMessageBus()
+
+        val handler = ChangeCustomerNameHandler()
+        msgBus.registerCommandHandler(ChangeCustomerName::class.java, handler, Validation {
+            "name" {
+                be {
+                    name.length > 5
+                } not "name: must be at least 5 characters long"
+            }
+        })
+
+        val changeCustomerNameAction = ChangeCustomerName("Jo")
+        try {
+            msgBus.send(changeCustomerNameAction)
+            fail("validation was not performed during sending of an invalidation action")
+        } catch (ex: ViolationErrorException) {
+            assertThat(ex.errors, `is`(equalTo(mapOf("name" to listOf("name: must be at least 5 characters long")))))
+            assertThat(handler.lastCommand, `is`(nullValue()))
+        }
     }
 
     @Test

@@ -15,7 +15,7 @@ interface MessageBus {
      * @param aClass
      * @param handler
      */
-    fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>)
+    fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>, validation: Validation<T> = Validation {})
 
     /**
      * Register an event handler

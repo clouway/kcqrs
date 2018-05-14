@@ -13,7 +13,7 @@ class InMemoryMessageBus() : MessageBus {
         handledEvents.add(event)
     }
 
-    override fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>) {
+    override fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>, validation: Validation<T>) {
 
     }
 
