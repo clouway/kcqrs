@@ -231,4 +231,34 @@ class AppEngineEventStoreTest {
     fun revertFromUnknownAggregate() {
         aggregateBase.revertLastEvents("::unknown aggregate::", 1) as RevertEventsResponse.AggregateNotFound
     }
+
+    @Test
+    fun saveStringWithTooBigSize() {
+        val tooBigStringData  = "aaaaa".repeat(150000)
+        val result = aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData)))
+        ) as SaveEventsResponse.Success
+
+        val response = aggregateBase.getEvents(result.aggregateId)
+
+        when (response) {
+            is GetEventsResponse.Success -> {
+                assertThat(response, `is`(equalTo((
+                        GetEventsResponse.Success(
+                                listOf(Aggregate(
+                                        result.aggregateId,
+                                        "Invoice",
+                                        null,
+                                        1,
+                                        listOf(
+                                                EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData))
+                                        )
+                                ))
+                        )
+                        ))))
+
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
 }

@@ -65,7 +65,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             }
 
             @Suppress("UNCHECKED_CAST")
-            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<String>
+            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<Text>
             val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
             /**
@@ -78,13 +78,12 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             }
 
             val eventsModel = events.mapIndexed { index, it -> EventModel(it.kind, currentVersion + index + 1, it.identityId, it.timestamp, it.data.payload.toString(Charsets.UTF_8)) }
-            val eventsAsString = eventsModel.map { messageFormat.format(it) }
+            val eventsAsText = eventsModel.map { Text(messageFormat.format(it)) }
 
-            aggregateEvents.addAll(eventsAsString)
+            aggregateEvents.addAll(eventsAsText)
 
             aggregateEntity.setUnindexedProperty(eventsProperty, aggregateEvents)
             aggregateEntity.setUnindexedProperty(versionProperty, currentVersion + events.size)
-
             dataStore.put(transaction, listOf(snapshot, aggregateEntity))
 
             transaction.commit()
@@ -124,13 +123,13 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             val aggregateEntity = aggregateEntities[it]!!
 
             @Suppress("UNCHECKED_CAST")
-            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as List<String>
+            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as List<Text>
             val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
             val aggregateType = aggregateEntity.getProperty(aggregateTypeProperty) as String
             val aggregateId = keyToAggregateId[aggregateEntity.key]!!
 
             val events = aggregateEvents.map {
-                messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+                messageFormat.parse<EventModel>(ByteArrayInputStream(it.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
             }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
 
             aggregates.add(Aggregate(aggregateId, aggregateType, null, currentVersion, events))
@@ -164,12 +163,14 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         }
 
         @Suppress("UNCHECKED_CAST")
-        val aggregateEvents = aggregate.getProperty(eventsProperty) as List<String>
+        val aggregateEvents = aggregate.getProperty(eventsProperty) as List<Text>
         val currentVersion = aggregate.getProperty(versionProperty) as Long
         val aggregateType = aggregate.getProperty(aggregateTypeProperty) as String
 
         val events = aggregateEvents.map {
-            messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+            messageFormat.parse<EventModel>(ByteArrayInputStream(
+                    it.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+
         }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
 
         return GetEventsResponse.Success(listOf(Aggregate(aggregateId, aggregateType, snapshot, currentVersion, events)))
@@ -196,7 +197,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 val aggregateEntity = dataStore.get(transaction, aggregateKey)
 
                 @Suppress("UNCHECKED_CAST")
-                val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<String>
+                val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<Text>
                 val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
                 if (count > aggregateEvents.size) {
