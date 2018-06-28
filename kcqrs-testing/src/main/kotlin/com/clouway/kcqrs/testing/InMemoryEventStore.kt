@@ -1,12 +1,20 @@
 package com.clouway.kcqrs.testing
 
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.Aggregate
+import com.clouway.kcqrs.core.EventPayload
+import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.RevertEventsResponse
+import com.clouway.kcqrs.core.SaveEventsResponse
+import com.clouway.kcqrs.core.SaveOptions
+import com.clouway.kcqrs.core.Snapshot
 import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class InMemoryEventStore : EventStore {
+class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
+
     private val idToAggregate = mutableMapOf<String, StoredAggregate>()
     private val stubbedResponses = LinkedList<SaveEventsResponse>()
 
@@ -18,11 +26,22 @@ class InMemoryEventStore : EventStore {
         }
 
         if (!idToAggregate.contains(aggregateId)) {
-            idToAggregate[aggregateId] = StoredAggregate(aggregateId, aggregateType, mutableListOf())
+            idToAggregate[aggregateId] = StoredAggregate(aggregateId, aggregateType, mutableListOf(), null)
         }
 
-        val aggregate = idToAggregate[aggregateId]!!
+        var aggregate = idToAggregate[aggregateId]!!
+
+        if (saveOptions.createSnapshot.required) {
+            val snapshot = saveOptions.createSnapshot.snapshot
+            aggregate = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, mutableListOf(), snapshot)
+        }
+
+        if (aggregate.events.size + events.size > eventsLimit) {
+            return SaveEventsResponse.SnapshotRequired(aggregate.events, aggregate.snapshot)
+        }
+
         aggregate.events.addAll(events)
+        idToAggregate[aggregateId] = aggregate
 
         return SaveEventsResponse.Success(aggregateId, aggregate.events.size.toLong())
     }
@@ -37,7 +56,7 @@ class InMemoryEventStore : EventStore {
         return GetEventsResponse.Success(listOf(Aggregate(
                 aggregateId,
                 aggregate.aggregateType,
-                null,
+                aggregate.snapshot,
                 aggregate.events.size.toLong(),
                 aggregate.events)
         ))
@@ -49,7 +68,7 @@ class InMemoryEventStore : EventStore {
             Aggregate(
                     it,
                     aggregate.aggregateType,
-                    null,
+                    aggregate.snapshot,
                     aggregate.events.size.toLong(),
                     aggregate.events
             )
@@ -63,7 +82,7 @@ class InMemoryEventStore : EventStore {
 
         val updatedEvents = aggregate.events.filterIndexed { index, _ -> index < lastEventIndex }.toMutableList()
 
-        idToAggregate[aggregateId] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents)
+        idToAggregate[aggregateId] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents, aggregate.snapshot)
 
         return RevertEventsResponse.Success
     }
@@ -74,4 +93,4 @@ class InMemoryEventStore : EventStore {
 
 }
 
-private data class StoredAggregate(val aggregateId: String, val aggregateType: String, val events: MutableList<EventPayload>)
+private data class StoredAggregate(val aggregateId: String, val aggregateType: String, val events: MutableList<EventPayload>, val snapshot: Snapshot?)
