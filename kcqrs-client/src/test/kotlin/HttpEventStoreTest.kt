@@ -1,5 +1,13 @@
 import com.clouway.kcqrs.client.HttpEventStore
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.Aggregate
+import com.clouway.kcqrs.core.Binary
+import com.clouway.kcqrs.core.CreateSnapshot
+import com.clouway.kcqrs.core.EventPayload
+import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.RevertEventsResponse
+import com.clouway.kcqrs.core.SaveEventsResponse
+import com.clouway.kcqrs.core.SaveOptions
+import com.clouway.kcqrs.core.Snapshot
 import com.google.api.client.http.HttpStatusCodes
 import com.google.api.client.http.LowLevelHttpResponse
 import com.google.api.client.json.gson.GsonFactory
@@ -7,7 +15,9 @@ import com.google.api.client.testing.http.MockHttpTransport
 import com.google.api.client.testing.http.MockLowLevelHttpRequest
 import com.google.api.client.testing.http.MockLowLevelHttpResponse
 import org.hamcrest.Matchers
-import org.hamcrest.Matchers.*
+import org.hamcrest.Matchers.`is`
+import org.hamcrest.Matchers.equalTo
+import org.hamcrest.Matchers.hasItems
 import org.jmock.integration.junit4.JUnitRuleMockery
 import org.junit.Assert.assertThat
 import org.junit.Rule
@@ -15,7 +25,7 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URL
-import java.util.*
+import java.util.UUID
 
 
 /**
@@ -51,7 +61,6 @@ class HttpEventStoreTest {
     fun saveEventsPayloadIsSendToTheServer() {
         val aggregateId = randomAggregateId()
 
-
         val transport = MockHttpTransport.Builder()
                 .setLowLevelHttpRequest(
                         MockLowLevelHttpRequest()
@@ -70,7 +79,33 @@ class HttpEventStoreTest {
         transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 
         assertThat(outputStream.toString(), `is`(equalTo(
-                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"topicName":"crm","version":1}""".trimIndent()
+                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshotRequired":false,"topicName":"crm","version":1}""".trimIndent()
+        )))
+    }
+
+    @Test
+    fun saveEventsWithSnapshot() {
+        val aggregateId = randomAggregateId()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpRequest(
+                        MockLowLevelHttpRequest()
+                                .setResponse(MockLowLevelHttpResponse()
+                                        .setStatusCode(HttpStatusCodes.STATUS_CODE_NOT_FOUND)
+                                )
+                ).build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.saveEvents("Invoice", listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId, 1L, "crm", CreateSnapshot(true, Snapshot(0, Binary("data")))))
+
+        val outputStream = ByteArrayOutputStream()
+        transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
+
+        assertThat(outputStream.toString(), `is`(equalTo(
+                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
         )))
     }
 
@@ -292,7 +327,6 @@ class HttpEventStoreTest {
     fun revertPayloadIsSendToTheServer() {
         val aggregateId = randomAggregateId()
 
-
         val transport = MockHttpTransport.Builder()
                 .setLowLevelHttpRequest(
                         MockLowLevelHttpRequest()
@@ -312,6 +346,73 @@ class HttpEventStoreTest {
 
         assertThat(outputStream.toString(), `is`(equalTo(
                 """{"aggregateId":"$aggregateId","count":3}""".trimIndent()
+        )))
+    }
+
+    @Test
+    fun snapshotIsRequired() {
+        val aggregateId = randomAggregateId()
+
+        val responsePayload = """
+            {"currentEvents":[
+                        {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"}
+                             ],
+              "currentSnapshot":{"version":1,"data":{"payload":[100,97,116,97]}
+            }""".trimIndent()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpRequest(
+                        MockLowLevelHttpRequest()
+                                .setResponse(MockLowLevelHttpResponse()
+                                        .setStatusCode(HttpStatusCodes.STATUS_CODE_UNPROCESSABLE_ENTITY)
+                                        .setContent(responsePayload)
+                                )
+                ).build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.saveEvents("Invoice", listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId, 1L, "crm", CreateSnapshot(true, Snapshot(0, Binary("data")))))
+
+        val outputStream = ByteArrayOutputStream()
+        transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
+
+        assertThat(outputStream.toString(), `is`(equalTo(
+                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
+        )))
+    }
+
+    @Test
+    fun snapshotIsRequiredWithoutCurrentSnapshot() {
+        val aggregateId = randomAggregateId()
+
+        val responsePayload = """
+            {"currentEvents":[
+                        {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"}
+                             ]
+            }""".trimIndent()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpRequest(
+                        MockLowLevelHttpRequest()
+                                .setResponse(MockLowLevelHttpResponse()
+                                        .setStatusCode(HttpStatusCodes.STATUS_CODE_UNPROCESSABLE_ENTITY)
+                                        .setContent(responsePayload)
+                                )
+                ).build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.saveEvents("Invoice", listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId, 1L, "crm", CreateSnapshot(true, Snapshot(0, Binary("")))))
+
+        val outputStream = ByteArrayOutputStream()
+        transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
+
+        assertThat(outputStream.toString(), `is`(equalTo(
+                """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
         )))
     }
 

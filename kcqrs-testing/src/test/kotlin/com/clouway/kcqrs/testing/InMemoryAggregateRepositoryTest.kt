@@ -1,7 +1,9 @@
 package com.clouway.kcqrs.testing
 
+import com.clouway.kcqrs.core.AggregateRoot
 import com.clouway.kcqrs.core.AggregateRootBase
 import com.clouway.kcqrs.core.Event
+import com.clouway.kcqrs.core.SnapshotMapper
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.equalTo
 import org.junit.Assert.assertThat
@@ -11,7 +13,7 @@ import org.junit.Test
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class InMemoryAggregateRepositoryTest {
-    
+
     @Test
     fun happyPath() {
         val aggregateRepository = InMemoryAggregateRepository()
@@ -74,6 +76,7 @@ class InMemoryAggregateRepositoryTest {
 }
 
 internal class Order private constructor(var customerName: String) : AggregateRootBase() {
+
     @Suppress("UNUSED")
     constructor() : this("")
 

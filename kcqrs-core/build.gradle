@@ -26,6 +26,7 @@ configurations {
 
 dependencies {
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+  compile group: 'com.google.code.gson', name: 'gson', version: '2.7'
 
   testCompile project(':kcqrs-testing')
   testCompile group: 'junit', name: 'junit', version: '4.12'

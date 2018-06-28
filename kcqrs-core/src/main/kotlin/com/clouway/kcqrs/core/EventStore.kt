@@ -41,13 +41,15 @@ interface EventStore {
 
 }
 
-data class SaveOptions(var aggregateId: String = "", val version: Long = 0L, val topicName: String = "") {
+data class SaveOptions(var aggregateId: String = "", val version: Long = 0L, val topicName: String = "", val createSnapshot: CreateSnapshot = CreateSnapshot()) {
     init {
         if (aggregateId == "") {
             aggregateId = UUID.randomUUID().toString()
         }
     }
 }
+
+data class CreateSnapshot(val required: Boolean = false, val snapshot: Snapshot? = null)
 
 /**
  * SaveEventsDataResponse is representing the returned result of saving of the events.
@@ -72,6 +74,12 @@ sealed class SaveEventsResponse {
      * Returned when there is an communication error
      */
     object ErrorInCommunication : SaveEventsResponse()
+
+    /**
+     * Returned when aggregate's current Events persistence limit has been reached.
+     */
+
+    data class SnapshotRequired(val currentEvents: List<EventPayload>, val currentSnapshot: Snapshot? = null) : SaveEventsResponse()
 }
 
 sealed class GetEventsResponse {
@@ -104,7 +112,7 @@ sealed class RevertEventsResponse {
 
 data class Aggregate(val aggregateId: String, val aggregateType: String, val snapshot: Snapshot?, val version: Long, val events: List<EventPayload>)
 
-data class Snapshot(private val version: Long, private val data: Binary)
+data class Snapshot(val version: Long, val data: Binary)
 
 data class EventPayload(val kind: String, val timestamp: Long, val identityId: String, val data: Binary) {
     constructor(kind: String, payload: String) : this(kind, 0, "", Binary(payload.toByteArray(Charsets.UTF_8)))
@@ -132,6 +140,4 @@ data class Binary(val payload: ByteArray) {
     override fun toString(): String {
         return "Binary(payload=${payload.toString(Charsets.UTF_8)})"
     }
-
-
 }

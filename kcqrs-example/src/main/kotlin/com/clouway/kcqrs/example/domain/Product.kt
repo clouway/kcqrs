@@ -8,7 +8,6 @@ data class ProductRegisteredEvent(@JvmField val id: String, @JvmField val name: 
 data class ProductNameChangedEvent(@JvmField val name: String) : Event
 
 class Product(@JvmField var name: String) : AggregateRootBase() {
-
     constructor() : this("")
 
     constructor(uuid: String, name: String) : this(name) {
