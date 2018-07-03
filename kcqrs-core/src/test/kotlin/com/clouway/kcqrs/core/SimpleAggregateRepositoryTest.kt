@@ -11,7 +11,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.*
+import java.util.UUID
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -34,6 +34,18 @@ class SimpleAggregateRepositoryTest {
 
         val loadedInvoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java)
         assertThat(loadedInvoice.customerName, equalTo("John"))
+    }
+
+    @Test(expected = AggregateNotFoundException::class)
+    fun notSaveAggregateWithoutEvents() {
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+
+        val invoice = Invoice(invoiceId(), "John")
+        invoice.markChangesAsCommitted()
+
+        eventRepository.save(invoice, anyIdentity)
+
+        eventRepository.getById(invoice.getId()!!, Invoice::class.java)
     }
 
     @Test
