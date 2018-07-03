@@ -22,6 +22,8 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             EventPayload(it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, Binary(it.payload))
         }
 
+        if(events.isEmpty()) return
+
         val response = eventStore.saveEvents(
                 aggregate::class.java.simpleName,
                 events,
