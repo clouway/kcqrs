@@ -22,7 +22,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             EventPayload(it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, Binary(it.payload))
         }
 
-        if(events.isEmpty()) return
+        if (events.isEmpty()) return
 
         val response = eventStore.saveEvents(
                 aggregate::class.java.simpleName,
@@ -33,6 +33,12 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         when (response) {
             is SaveEventsResponse.Success -> {
                 try {
+                    eventsWithPayload.map {
+                        if (it.event is AuthoredEvent) {
+                            it.event.identity = identity
+                        }
+                    }
+
                     eventPublisher.publish(eventsWithPayload)
 
                     aggregate.markChangesAsCommitted()
@@ -48,7 +54,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
     }
 
-    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String,T> {
+    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>): Map<String, T> {
         /*
          * Get the events from the event store
         */

@@ -1,7 +1,9 @@
 package com.clouway.kcqrs.core
 
 
-import org.hamcrest.CoreMatchers.*
+import org.hamcrest.CoreMatchers.`is`
+import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.nullValue
 import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Test
@@ -42,6 +44,18 @@ class SimpleMessageBusTest {
         assertThat(firstHandler.lastEvent, `is`(equalTo(event.event)))
         assertThat(secondHandler.lastEvent, `is`(equalTo(event.event)))
 
+    }
+
+    @Test
+    fun handleAuthoredEvent() {
+        val msgBus = SimpleMessageBus()
+        val handler = MyIdentityEventHandler()
+
+        msgBus.registerEventHandler(MyAuthoredEvent::class.java, handler)
+        val event = EventWithPayload(MyAuthoredEvent("foo"), "::payload::")
+
+        msgBus.handle(event)
+        assertThat(handler.lastEvent, `is`(equalTo(event.event)))
     }
 
     @Test
@@ -184,6 +198,16 @@ class SimpleMessageBusTest {
         }
     }
 
+    class MyIdentityEventHandler : EventHandler<MyAuthoredEvent> {
+        var lastEvent: MyAuthoredEvent? = null
+
+        override fun handle(event: MyAuthoredEvent) {
+            lastEvent = event
+        }
+    }
+
     class MyEvent(@JvmField val name: UUID) : Event
+
+    class MyAuthoredEvent(val field: String) : AuthoredEvent()
 
 }

@@ -1,15 +1,28 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.Aggregate
+import com.clouway.kcqrs.core.AuthoredEvent
+import com.clouway.kcqrs.core.Binary
+import com.clouway.kcqrs.core.EventPayload
+import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.Identity
+import com.clouway.kcqrs.core.RevertEventsResponse
+import com.clouway.kcqrs.core.SaveEventsResponse
+import com.clouway.kcqrs.core.SaveOptions
 import com.clouway.kcqrs.testing.TestMessageFormat
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig
 import com.google.appengine.tools.development.testing.LocalServiceTestHelper
-import org.hamcrest.CoreMatchers.*
+import org.hamcrest.CoreMatchers.`is`
+import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.hasItems
+import org.hamcrest.CoreMatchers.not
 import org.junit.After
 import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.*
 
 /**
@@ -234,7 +247,7 @@ class AppEngineEventStoreTest {
 
     @Test
     fun saveStringWithTooBigSize() {
-        val tooBigStringData  = "aaaaa".repeat(150000)
+        val tooBigStringData = "aaaaa".repeat(150000)
         val result = aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData)))
         ) as SaveEventsResponse.Success
