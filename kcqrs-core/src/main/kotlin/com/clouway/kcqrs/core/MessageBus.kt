@@ -43,7 +43,10 @@ interface MessageBus {
 
     /**
      * Handles event using the registered event handlers.
+     *
+     * @throws Exception different exceptions could be thrown when trying to handle the event.
      */
+    @Throws(Exception::class)
     fun handle(event: EventWithPayload)
 
 }

@@ -30,8 +30,10 @@ dependencies {
   compile 'com.google.http-client:google-http-client:1.23.0'
   compile 'com.google.http-client:google-http-client-gson:1.23.0'
 
-  testCompile project(':kcqrs-testing')
   testCompile 'junit:junit:4.12'
+  testCompile 'org.jmock:jmock:2.8.2'
+  testCompile 'org.jmock:jmock-junit4:2.8.2'
+
   testCompile 'com.google.code.gson:gson:2.8.0'
   testCompile 'org.jmock:jmock:2.8.2'
   testCompile 'org.jmock:jmock-junit4:2.8.2'
