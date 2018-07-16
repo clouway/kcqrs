@@ -11,7 +11,7 @@ class SyncEventPublisher(private val messageBus: MessageBus) : EventPublisher {
             try {
                 messageBus.handle(it)
             } catch (ex: Exception) {
-                throw PublishErrorException()
+                throw PublishErrorException(ex)
             }
         }
     }
