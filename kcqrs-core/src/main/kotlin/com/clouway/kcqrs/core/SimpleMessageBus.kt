@@ -63,7 +63,7 @@ class SimpleMessageBus : MessageBus {
 
         handler.handler.handle(command)
     }
-    
+
     override fun handle(event: EventWithPayload) {
         val key = event.event::class.java.name
 

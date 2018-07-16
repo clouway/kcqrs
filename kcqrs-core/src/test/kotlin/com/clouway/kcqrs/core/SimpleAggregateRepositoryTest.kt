@@ -11,7 +11,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.UUID
+import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -24,7 +24,8 @@ class SimpleAggregateRepositoryTest {
         }
     }
 
-    private val anyIdentity = Identity("::user id::", LocalDateTime.of(2018, 4, 1, 10, 12, 34).toInstant(ZoneOffset.UTC))
+    val time = LocalDateTime.of(2018, 4, 1, 10, 12, 34).toInstant(ZoneOffset.UTC)
+    private val anyIdentity = Identity("::user id::", time)
 
     @Test
     fun happyPath() {
@@ -182,7 +183,20 @@ class SimpleAggregateRepositoryTest {
                 firstInvoice.getId()!! to firstInvoice
         ))))
     }
-    
+
+    @Test
+    fun applyAuthoredEvent() {
+        val invoice = Invoice("::id::", "::customerName::")
+        invoice.applyAuthoredEvent()
+
+        val eventPublisher = InMemoryEventPublisher()
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), eventPublisher, configuration)
+
+        eventRepository.save(invoice, anyIdentity)
+        val authoredEvent = eventPublisher.events[1].event as AuthoredEvent
+        assertThat(authoredEvent.identity, `is`(equalTo(anyIdentity)))
+    }
+
     @Test
     fun getMultipleAggregatesAndNothingIsReturned() {
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(), TestMessageFormat(), InMemoryEventPublisher(), configuration)
@@ -197,6 +211,8 @@ class SimpleAggregateRepositoryTest {
 
     data class ChangeCustomerName(@JvmField val invoiceId: String, @JvmField val newCustomerName: String) : Event
 
+    data class SomeAuthoredEvent(val field: String) : AuthoredEvent()
+
     data class Invoice private constructor(@JvmField var customerName: String) : AggregateRootBase() {
 
         constructor() : this("")
@@ -208,6 +224,12 @@ class SimpleAggregateRepositoryTest {
         fun changeCustomerName(customerName: String) {
             applyChange(ChangeCustomerName(getId()!!, customerName))
         }
+
+        fun applyAuthoredEvent() {
+            applyChange(SomeAuthoredEvent("::field::"))
+        }
+
+        fun apply(event: SomeAuthoredEvent) {}
 
         fun apply(event: InvoiceCreatedEvent) {
             aggregateId = event.invoiceId
