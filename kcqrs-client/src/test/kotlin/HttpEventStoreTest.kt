@@ -225,7 +225,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        val result = store.getEvents(aggregateId) as GetEventsResponse.Success
+        val result = store.getEvents(aggregateId, "Invoice") as GetEventsResponse.Success
         assertThat(result.aggregates, hasItems(
                 Aggregate(
                         aggregateId,
@@ -254,7 +254,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.getEvents(aggregateId) as GetEventsResponse.AggregateNotFound
+        store.getEvents(aggregateId, "Invoice") as GetEventsResponse.AggregateNotFound
     }
 
 
@@ -279,7 +279,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        val result = store.getEvents(aggregateId) as GetEventsResponse.Success
+        val result = store.getEvents(aggregateId, "Order") as GetEventsResponse.Success
         assertThat(result, Matchers.equalTo(
                 GetEventsResponse.Success(listOf(Aggregate(aggregateId, "Order", null, 4L, listOf())))
         ))
@@ -414,6 +414,47 @@ class HttpEventStoreTest {
         assertThat(outputStream.toString(), `is`(equalTo(
                 """{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
         )))
+    }
+
+    @Test
+    fun gotBadRequestFromServerOnGetEventsForAggregate() {
+        val aggregateId = randomAggregateId()
+
+        val responsePayload = """{"message":"Some message"}""".trimIndent()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+                        .setStatusCode(HttpStatusCodes.STATUS_CODE_BAD_REQUEST)
+                        .setContent(responsePayload))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val result = store.getEvents(aggregateId, "Invoice") as GetEventsResponse.Error
+        assertThat(result.message, `is`(equalTo("Some message")))
+    }
+
+    @Test
+    fun gotBadRequestFromServerOnGetEventsForManyAggregates() {
+        val aggregateId = randomAggregateId()
+        val aggregateId2 = randomAggregateId()
+
+        val responsePayload = """{"message":"Some message"}""".trimIndent()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+                        .setStatusCode(HttpStatusCodes.STATUS_CODE_BAD_REQUEST)
+                        .setContent(responsePayload))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val result = store.getEvents(listOf(aggregateId,aggregateId2), "Invoice") as GetEventsResponse.Error
+        assertThat(result.message, `is`(equalTo("Some message")))
     }
 
     private fun randomAggregateId() = UUID.randomUUID().toString()

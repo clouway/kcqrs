@@ -8,7 +8,7 @@ import com.clouway.kcqrs.core.RevertEventsResponse
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
 import com.clouway.kcqrs.core.Snapshot
-import java.util.*
+import java.util.LinkedList
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -46,12 +46,16 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         return SaveEventsResponse.Success(aggregateId, aggregate.events.size.toLong())
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
+    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
         if (!idToAggregate.containsKey(aggregateId)) {
             return GetEventsResponse.AggregateNotFound
         }
 
         val aggregate = idToAggregate[aggregateId]!!
+
+        if (aggregateType != aggregate.aggregateType) {
+            return GetEventsResponse.Error("")
+        }
 
         return GetEventsResponse.Success(listOf(Aggregate(
                 aggregateId,
@@ -62,9 +66,12 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         ))
     }
 
-    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+    override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
         val aggregates = aggregateIds.filter { idToAggregate.containsKey(it) }.map {
             val aggregate = idToAggregate[it]!!
+            if (aggregateType != aggregate.aggregateType) {
+                return GetEventsResponse.Error("")
+            }
             Aggregate(
                     it,
                     aggregate.aggregateType,
