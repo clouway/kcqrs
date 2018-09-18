@@ -10,7 +10,7 @@ buildscript {
   }
   dependencies {
     classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    classpath 'com.google.cloud.tools:appengine-gradle-plugin:+'
+    classpath 'com.google.cloud.tools:appengine-gradle-plugin:1.+'
     classpath 'org.akhikhl.gretty:gretty:+'
 
   }

@@ -24,7 +24,7 @@ interface EventStore {
      * @param aggregateId the ID of the aggregate which events should be retrieved
      * @return a response of events
      */
-    fun getEvents(aggregateId: String): GetEventsResponse
+    fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse
 
     /**
      * Retrieves the events that are saved for the stored aggregates.
@@ -32,12 +32,12 @@ interface EventStore {
      * @param aggregateIds a list of IDs of the aggregates which events should be retrieved
      * @return a response of events for each of the requested aggregates
      */
-    fun getEvents(aggregateIds: List<String>): GetEventsResponse
+    fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse
 
     /**
      * Reverts last events that are stored for the aggregate.
      */
-    fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse
+    fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse
 
 }
 

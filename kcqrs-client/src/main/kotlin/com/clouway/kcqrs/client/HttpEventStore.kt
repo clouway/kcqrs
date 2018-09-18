@@ -76,10 +76,10 @@ class HttpEventStore(private val endpoint: URL,
         return SaveEventsResponse.Error("Generic Error")
     }
 
-    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+    override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
         val ids = aggregateIds.joinToString(",")
 
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?ids=$ids"))
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?ids=$ids&aggregateType=$aggregateType"))
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -116,8 +116,8 @@ class HttpEventStore(private val endpoint: URL,
         }
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId"))
+    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId?aggregateType=$aggregateType"))
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -154,9 +154,9 @@ class HttpEventStore(private val endpoint: URL,
         }
     }
 
-    override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {
+    override fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse {
         val request = requestFactory.buildPatchRequest(
-                GenericUrl(endpoint.toString() + "/v1/aggregates/$aggregateId"),
+                GenericUrl(endpoint.toString() + "/v1/aggregates/$aggregateId?&aggregateType=$aggregateType"),
                 JsonHttpContent(GsonFactory.getDefaultInstance(), RevertEventsRequestDto(aggregateId, count))
         )
         request.throwExceptionOnExecuteError = false

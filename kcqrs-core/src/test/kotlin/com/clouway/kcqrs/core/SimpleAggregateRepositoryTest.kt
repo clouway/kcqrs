@@ -115,7 +115,7 @@ class SimpleAggregateRepositoryTest {
             eventRepository.save(invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!) as GetEventsResponse.Success
+            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.isEmpty(), `is`(true))
         }
     }
@@ -141,7 +141,7 @@ class SimpleAggregateRepositoryTest {
             eventRepository.save(invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!) as GetEventsResponse.Success
+            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.size, `is`(1))
         }
     }

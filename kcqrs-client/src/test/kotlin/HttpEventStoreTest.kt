@@ -225,7 +225,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        val result = store.getEvents(aggregateId) as GetEventsResponse.Success
+        val result = store.getEvents(aggregateId,"Invoice") as GetEventsResponse.Success
         assertThat(result.aggregates, hasItems(
                 Aggregate(
                         aggregateId,
@@ -254,7 +254,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.getEvents(aggregateId) as GetEventsResponse.AggregateNotFound
+        store.getEvents(aggregateId, "Invoice") as GetEventsResponse.AggregateNotFound
     }
 
 
@@ -279,7 +279,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        val result = store.getEvents(aggregateId) as GetEventsResponse.Success
+        val result = store.getEvents(aggregateId, "Invoice") as GetEventsResponse.Success
         assertThat(result, Matchers.equalTo(
                 GetEventsResponse.Success(listOf(Aggregate(aggregateId, "Order", null, 4L, listOf())))
         ))
@@ -303,7 +303,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.revertLastEvents(aggregateId, 3) as RevertEventsResponse.Success
+        store.revertLastEvents("Invoice", aggregateId, 3) as RevertEventsResponse.Success
     }
 
     @Test
@@ -320,7 +320,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.revertLastEvents(aggregateId, 3) as RevertEventsResponse.AggregateNotFound
+        store.revertLastEvents("Invoice", aggregateId, 3) as RevertEventsResponse.AggregateNotFound
     }
 
     @Test
@@ -339,7 +339,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        store.revertLastEvents(aggregateId, 3)
+        store.revertLastEvents("Invoice", aggregateId, 3)
 
         val outputStream = ByteArrayOutputStream()
         transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
