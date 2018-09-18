@@ -8,7 +8,7 @@ import com.clouway.kcqrs.core.RevertEventsResponse
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
 import com.clouway.kcqrs.core.Snapshot
-import java.util.*
+import java.util.LinkedList
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -19,17 +19,17 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
     private val stubbedResponses = LinkedList<SaveEventsResponse>()
 
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
-        val aggregateId = saveOptions.aggregateId
+        val aggregateKey = aggregateKey(aggregateType, saveOptions.aggregateId)
 
         if (stubbedResponses.size > 0) {
             return stubbedResponses.pop()
         }
 
-        if (!idToAggregate.contains(aggregateId)) {
-            idToAggregate[aggregateId] = StoredAggregate(aggregateId, aggregateType, mutableListOf(), null)
+        if (!idToAggregate.contains(aggregateKey)) {
+            idToAggregate[aggregateKey] = StoredAggregate(saveOptions.aggregateId, aggregateType, mutableListOf(), null)
         }
 
-        var aggregate = idToAggregate[aggregateId]!!
+        var aggregate = idToAggregate[aggregateKey]!!
 
         if (saveOptions.createSnapshot.required) {
             val snapshot = saveOptions.createSnapshot.snapshot
@@ -41,17 +41,18 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         }
 
         aggregate.events.addAll(events)
-        idToAggregate[aggregateId] = aggregate
+        idToAggregate[aggregateKey] = aggregate
 
-        return SaveEventsResponse.Success(aggregateId, aggregate.events.size.toLong())
+        return SaveEventsResponse.Success(saveOptions.aggregateId, aggregate.events.size.toLong())
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
-        if (!idToAggregate.containsKey(aggregateId)) {
+    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
+        val key = aggregateKey(aggregateType, aggregateId)
+        if (!idToAggregate.containsKey(key)) {
             return GetEventsResponse.AggregateNotFound
         }
 
-        val aggregate = idToAggregate[aggregateId]!!
+        val aggregate = idToAggregate[key]!!
 
         return GetEventsResponse.Success(listOf(Aggregate(
                 aggregateId,
@@ -62,9 +63,9 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         ))
     }
 
-    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
-        val aggregates = aggregateIds.filter { idToAggregate.containsKey(it) }.map {
-            val aggregate = idToAggregate[it]!!
+    override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
+        val aggregates = aggregateIds.filter { idToAggregate.containsKey(aggregateKey(aggregateType, it)) }.map {
+            val aggregate = idToAggregate[aggregateKey(aggregateType, it)]!!
             Aggregate(
                     it,
                     aggregate.aggregateType,
@@ -76,13 +77,13 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         return GetEventsResponse.Success(aggregates)
     }
 
-    override fun revertLastEvents(aggregateId: String, count: Int): RevertEventsResponse {
-        val aggregate = idToAggregate[aggregateId]!!
+    override fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse {
+        val aggregate = idToAggregate[aggregateKey(aggregateType, aggregateId)]!!
         val lastEventIndex = aggregate.events.size - count
 
         val updatedEvents = aggregate.events.filterIndexed { index, _ -> index < lastEventIndex }.toMutableList()
 
-        idToAggregate[aggregateId] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents, aggregate.snapshot)
+        idToAggregate[aggregateKey(aggregateType, aggregateId)] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents, aggregate.snapshot)
 
         return RevertEventsResponse.Success
     }
@@ -90,6 +91,8 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
     fun pretendThatNextSaveWillReturn(response: SaveEventsResponse) {
         stubbedResponses.add(response)
     }
+
+    private fun aggregateKey(aggregateType: String, aggregateId: String) = "${aggregateType}_$aggregateId"
 
 }
 

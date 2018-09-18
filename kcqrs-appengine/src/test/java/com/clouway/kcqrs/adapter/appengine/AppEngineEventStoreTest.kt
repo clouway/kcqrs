@@ -21,7 +21,7 @@ import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import java.util.*
+import java.util.UUID
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -48,7 +48,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -79,7 +79,7 @@ class AppEngineEventStoreTest {
                 EventPayload("::kind2::", 2L, "::user 2::", Binary("event2-data"))
         )) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Order")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -113,7 +113,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(listOf(result1.aggregateId, result2.aggregateId))
+        val response = aggregateBase.getEvents(listOf(result1.aggregateId, result2.aggregateId), "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -144,7 +144,7 @@ class AppEngineEventStoreTest {
 
     @Test
     fun getMultipleAggregatesButNoneMatched() {
-        val response = aggregateBase.getEvents(listOf("::id 1::", "::id 2::"))
+        val response = aggregateBase.getEvents(listOf("::id 1::", "::id 2::"), "Order")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -195,11 +195,11 @@ class AppEngineEventStoreTest {
                 EventPayload("::kind 5::", 5L, "::user2::", Binary("data4"))
         ), SaveOptions(aggregateId = aggregateId, version = 0))
 
-        val response = aggregateBase.revertLastEvents(aggregateId, 2)
+        val response = aggregateBase.revertLastEvents("Task", aggregateId, 2)
         when (response) {
             is RevertEventsResponse.Success -> {
 
-                val resp = aggregateBase.getEvents(aggregateId) as GetEventsResponse.Success
+                val resp = aggregateBase.getEvents(aggregateId, "Task") as GetEventsResponse.Success
                 assertThat(resp, `is`(equalTo(
                         GetEventsResponse.Success(listOf(Aggregate(aggregateId,
                                 "Task",
@@ -218,7 +218,7 @@ class AppEngineEventStoreTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun revertZeroEventsIsNotAllowed() {
-        aggregateBase.revertLastEvents("::any id::", 0)
+        aggregateBase.revertLastEvents("Task", "::any id::", 0)
     }
 
     @Test
@@ -230,7 +230,7 @@ class AppEngineEventStoreTest {
                 EventPayload("::kind 2::", 2L, "::user id::", Binary("data1"))
         ), SaveOptions(aggregateId = aggregateId, version = 0))
 
-        val response = aggregateBase.revertLastEvents(aggregateId, 5)
+        val response = aggregateBase.revertLastEvents("A1", aggregateId, 5)
         when (response) {
             is RevertEventsResponse.ErrorNotEnoughEventsToRevert -> {
             }
@@ -240,7 +240,7 @@ class AppEngineEventStoreTest {
 
     @Test
     fun revertFromUnknownAggregate() {
-        aggregateBase.revertLastEvents("::unknown aggregate::", 1) as RevertEventsResponse.AggregateNotFound
+        aggregateBase.revertLastEvents("Type", "::unknown aggregate::", 1) as RevertEventsResponse.AggregateNotFound
     }
 
     @Test
@@ -250,7 +250,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData)))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -316,7 +316,7 @@ class AppEngineEventStoreTest {
     fun onEventLimitReachSnapshotIsReturned() {
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true,Snapshot(0, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         )
 
         val tooBigStringData = "aaaaaaaa".repeat(150000)
@@ -337,7 +337,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::")
+        val response = aggregateBase.getEvents("::aggregateId::","Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
@@ -370,7 +370,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 1)
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::")
+        val response = aggregateBase.getEvents("::aggregateId::", "Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
@@ -405,7 +405,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData2::"))))
         ) as SaveEventsResponse.Success
 
-        val success = aggregateBase.getEvents("::aggregateId::")
+        val success = aggregateBase.getEvents("::aggregateId::", "Invoice")
 
         when (success) {
             is GetEventsResponse.Success -> {

@@ -2,7 +2,6 @@ package com.clouway.kcqrs.core
 
 import com.clouway.kcqrs.core.messages.MessageFormat
 import java.io.ByteArrayInputStream
-import java.util.logging.Logger
 
 
 class SimpleAggregateRepository(private val eventStore: EventStore,
@@ -39,7 +38,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                     eventPublisher.publish(eventsWithPayload)
                     aggregate.markChangesAsCommitted()
                 } catch (ex: PublishErrorException) {
-                    eventStore.revertLastEvents(aggregate.getId()!!, events.size)
+                    eventStore.revertLastEvents(aggregateClass.simpleName, aggregate.getId()!!, events.size)
                     throw ex
                 }
             }
@@ -62,7 +61,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                             eventPublisher.publish(eventsWithPayload)
                             aggregate.markChangesAsCommitted()
                         } catch (ex: PublishErrorException) {
-                            eventStore.revertLastEvents(aggregate.getId()!!, events.size)
+                            eventStore.revertLastEvents(aggregateClass.simpleName, aggregate.getId()!!, events.size)
                             throw ex
                         }
                     }
@@ -80,7 +79,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         /*
          * Get the events from the event store
         */
-        val response = eventStore.getEvents(ids)
+        val response = eventStore.getEvents(ids, type.simpleName)
         when (response) {
             is GetEventsResponse.Success -> {
                 val adapter = AggregateAdapter<T>("apply")
@@ -97,7 +96,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         /*
          * Get the events from the event store
          */
-        val response = eventStore.getEvents(id)
+        val response = eventStore.getEvents(id, type.simpleName)
         when (response) {
             is GetEventsResponse.Success -> {
                 //we are sure that only one aggregate will be returned
@@ -129,7 +128,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         try {
             aggregate = type.newInstance()
             if (snapshot != null) {
-                aggregate = aggregate.fromSnapshot(String(snapshot.data.payload),snapshot.version) as T
+                aggregate = aggregate.fromSnapshot(String(snapshot.data.payload), snapshot.version) as T
             }
         } catch (e: InstantiationException) {
             throw HydrationException(id, "target type: '${type.name}' cannot be instantiated")
