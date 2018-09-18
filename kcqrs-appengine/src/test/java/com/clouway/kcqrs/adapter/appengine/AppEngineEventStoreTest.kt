@@ -21,7 +21,7 @@ import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import java.util.*
+import java.util.UUID
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -48,7 +48,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -71,7 +71,6 @@ class AppEngineEventStoreTest {
         }
     }
 
-
     @Test
     fun multipleEvents() {
         val result = aggregateBase.saveEvents("Order", listOf(
@@ -79,7 +78,7 @@ class AppEngineEventStoreTest {
                 EventPayload("::kind2::", 2L, "::user 2::", Binary("event2-data"))
         )) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Order")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -113,7 +112,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(listOf(result1.aggregateId, result2.aggregateId))
+        val response = aggregateBase.getEvents(listOf(result1.aggregateId, result2.aggregateId), "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -144,7 +143,7 @@ class AppEngineEventStoreTest {
 
     @Test
     fun getMultipleAggregatesButNoneMatched() {
-        val response = aggregateBase.getEvents(listOf("::id 1::", "::id 2::"))
+        val response = aggregateBase.getEvents(listOf("::id 1::", "::id 2::"), "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -199,7 +198,7 @@ class AppEngineEventStoreTest {
         when (response) {
             is RevertEventsResponse.Success -> {
 
-                val resp = aggregateBase.getEvents(aggregateId) as GetEventsResponse.Success
+                val resp = aggregateBase.getEvents(aggregateId, "Task") as GetEventsResponse.Success
                 assertThat(resp, `is`(equalTo(
                         GetEventsResponse.Success(listOf(Aggregate(aggregateId,
                                 "Task",
@@ -250,7 +249,7 @@ class AppEngineEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData)))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents(result.aggregateId)
+        val response = aggregateBase.getEvents(result.aggregateId, "Invoice")
 
         when (response) {
             is GetEventsResponse.Success -> {
@@ -316,7 +315,7 @@ class AppEngineEventStoreTest {
     fun onEventLimitReachSnapshotIsReturned() {
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true,Snapshot(0, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         )
 
         val tooBigStringData = "aaaaaaaa".repeat(150000)
@@ -337,7 +336,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::")
+        val response = aggregateBase.getEvents("::aggregateId::", "Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
@@ -370,7 +369,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 1)
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::")
+        val response = aggregateBase.getEvents("::aggregateId::", "Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
@@ -405,7 +404,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData2::"))))
         ) as SaveEventsResponse.Success
 
-        val success = aggregateBase.getEvents("::aggregateId::")
+        val success = aggregateBase.getEvents("::aggregateId::", "Invoice")
 
         when (success) {
             is GetEventsResponse.Success -> {
@@ -422,10 +421,54 @@ class AppEngineEventStoreTest {
                                 ))
                         )
                         ))))
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
 
+    @Test
+    fun getEventsForAggregateForWrongAggregateType() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+        )
+
+
+        val response = aggregateBase.getEvents("::aggregateId::", "WrongClass")
+        when (response) {
+            is GetEventsResponse.Error -> {
+                assertThat(response.message, `is`(equalTo("Was searching for WrongClass, but provided id ::aggregateId:: is for Invoice.")))
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
+
+    @Test
+    fun getEventsForManyAggregatesOneOfThemIsFromWrongAggregateType() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+        )
+
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId2::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+        )
+
+        aggregateBase.saveEvents("WrongType",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId3::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+        )
+
+
+        val response = aggregateBase.getEvents(listOf("::aggregateId::","::aggregateId2::","::aggregateId3::"), "Invoice")
+        when (response) {
+            is GetEventsResponse.Error -> {
+                assertThat(response.message, `is`(equalTo("Was searching for Invoice, but provided id ::aggregateId3:: is for WrongType.")))
             }
             else -> fail("got unknown response when fetching stored events")
         }
     }
 }
+
 

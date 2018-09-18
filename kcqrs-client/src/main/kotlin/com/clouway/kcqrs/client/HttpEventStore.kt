@@ -76,10 +76,10 @@ class HttpEventStore(private val endpoint: URL,
         return SaveEventsResponse.Error("Generic Error")
     }
 
-    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+    override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
         val ids = aggregateIds.joinToString(",")
 
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?ids=$ids"))
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?aggregateType=$aggregateType&ids=$ids"))
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -87,6 +87,11 @@ class HttpEventStore(private val endpoint: URL,
             // Aggregate was not found and no events cannot be returned
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
                 return GetEventsResponse.AggregateNotFound
+            }
+
+            if (response.statusCode == HttpStatusCodes.STATUS_CODE_BAD_REQUEST) {
+                val resp = response.parseAs(GetEventsErrorResponseDto::class.java)
+                return GetEventsResponse.Error(resp.message)
             }
 
             if (response.isSuccessStatusCode) {
@@ -116,8 +121,8 @@ class HttpEventStore(private val endpoint: URL,
         }
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId"))
+    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
+        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId?aggregateType=$aggregateType"))
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -125,6 +130,11 @@ class HttpEventStore(private val endpoint: URL,
             // Aggregate was not found and no events cannot be returned
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
                 return GetEventsResponse.AggregateNotFound
+            }
+
+            if (response.statusCode == HttpStatusCodes.STATUS_CODE_BAD_REQUEST) {
+                val resp = response.parseAs(GetEventsErrorResponseDto::class.java)
+                return GetEventsResponse.Error(resp.message)
             }
 
             if (response.isSuccessStatusCode) {
@@ -180,6 +190,12 @@ class HttpEventStore(private val endpoint: URL,
     }
 
 }
+
+internal data class GetEventsErrorResponseDto(@Key @JvmField var message: String) : GenericJson() {
+    @Suppress("UNUSED")
+    constructor() : this("")
+}
+
 
 internal data class GetEventsResponseDto(@Key @JvmField var aggregates: List<AggregateDto>) : GenericJson() {
     @Suppress("UNUSED")

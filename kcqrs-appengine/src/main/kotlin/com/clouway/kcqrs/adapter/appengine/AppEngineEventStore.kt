@@ -46,6 +46,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
      * Property name of the version which is used for concurrency control.
      */
     private val versionProperty = "v"
+
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
         val aggregateId = saveOptions.aggregateId
         var transaction: Transaction? = null
@@ -138,7 +139,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
     }
 
 
-    override fun getEvents(aggregateIds: List<String>): GetEventsResponse {
+    override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
         val dataStore = DatastoreServiceFactory.getDatastoreService()
         val snapshotKeys = aggregateIds.map { KeyFactory.createKey(snapshotKind, it) }
 
@@ -161,8 +162,14 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
 
         aggregateEntities.keys.forEach {
             val aggregateEntity = aggregateEntities[it]!!
-            var snapshot: Snapshot? = null
+            val aggregateId = keyToAggregateId[aggregateEntity.key]!!
+            val thisStoredAggregateType = aggregateEntity.getProperty(aggregateTypeProperty) as String
 
+            if (thisStoredAggregateType != aggregateType) {
+                return GetEventsResponse.Error("Was searching for $aggregateType, but provided id $aggregateId is for $thisStoredAggregateType.")
+            }
+
+            var snapshot: Snapshot? = null
             if (snapshotEntities.containsKey(it)) {
                 val thisSnapshot = snapshotEntities[it]!!
                 val version = thisSnapshot.getProperty("aggregateIndex") as Long? ?: 0
@@ -174,10 +181,8 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 }
             }
 
-            val aggregateId = keyToAggregateId[aggregateEntity.key]!!
             val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as List<*>
             val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
-            val aggregateType = aggregateEntity.getProperty(aggregateTypeProperty) as String
             val events = adaptEvents(aggregateEvents.filterIsInstance(Text::class.java))
 
             aggregates.add(Aggregate(aggregateId, aggregateType, snapshot, currentVersion, events))
@@ -186,7 +191,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         return GetEventsResponse.Success(aggregates)
     }
 
-    override fun getEvents(aggregateId: String): GetEventsResponse {
+    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
         val dataStore = DatastoreServiceFactory.getDatastoreService()
 
         val snapshotKey = KeyFactory.createKey(snapshotKind, aggregateId)
@@ -200,7 +205,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         val version = snapshotEntity.getProperty("version") as Long? ?: 0
 
         val snapshotData = snapshotEntity.getProperty("data") as Blob?
-        val snapshot: Snapshot? = if (snapshotData != null){
+        val snapshot: Snapshot? = if (snapshotData != null) {
             Snapshot(version, Binary(snapshotData.bytes))
 
         } else null
@@ -213,10 +218,14 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             return GetEventsResponse.AggregateNotFound
         }
 
+        val storedAggregateType = aggregate.getProperty(aggregateTypeProperty) as String
+        if (storedAggregateType != aggregateType) {
+            return GetEventsResponse.Error("Was searching for $aggregateType, but provided id $aggregateId is for $storedAggregateType.")
+        }
+
         @Suppress("UNCHECKED_CAST")
         val aggregateEvents = aggregate.getProperty(eventsProperty) as List<Text>
         val currentVersion = aggregate.getProperty(versionProperty) as Long
-        val aggregateType = aggregate.getProperty(aggregateTypeProperty) as String
 
         val events = aggregateEvents.map {
             messageFormat.parse<EventModel>(ByteArrayInputStream(

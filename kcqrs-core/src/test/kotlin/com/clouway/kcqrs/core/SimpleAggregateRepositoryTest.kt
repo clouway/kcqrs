@@ -115,7 +115,7 @@ class SimpleAggregateRepositoryTest {
             eventRepository.save(invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!) as GetEventsResponse.Success
+            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.isEmpty(), `is`(true))
         }
     }
@@ -141,7 +141,7 @@ class SimpleAggregateRepositoryTest {
             eventRepository.save(invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!) as GetEventsResponse.Success
+            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.size, `is`(1))
         }
     }
@@ -261,6 +261,31 @@ class SimpleAggregateRepositoryTest {
         invoice = eventRepository.getById(id, Invoice::class.java)
 
         assertThat(invoice.customerName, `is`(equalTo("Foo")))
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun tryingToGetAggregateWithIdThatBelongsToOtherTypeOfAggregate() {
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val id = invoiceId()
+        val invoice = Invoice(id, "John")
+
+        eventRepository.save(invoice, anyIdentity)
+
+        eventRepository.getById(id, TestClass::class.java)
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun tryingToGetAggregatesWithOneOfTheIdsBelongingToOtherTypeOfAggregate() {
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val invoice = Invoice("::id1::", "John")
+        val invoice2 = Invoice("::id2::", "Smith")
+        val testClass = TestClass("::id3::", "Smith", 1, TestObject(), listOf())
+
+        eventRepository.save(invoice, anyIdentity)
+        eventRepository.save(invoice2, anyIdentity)
+        eventRepository.save(testClass, anyIdentity)
+
+        eventRepository.getByIds(listOf("::id1::", "::id2::", "::id3::"), Invoice::class.java)
     }
 
     private fun invoiceId() = UUID.randomUUID().toString()
