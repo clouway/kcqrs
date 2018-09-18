@@ -8,5 +8,3 @@ cache:
   directories:
     - $HOME/.gradle/caches/
     - $HOME/.gradle/wrapper/
-project: "KCQRS"    
-version: "1.0"
