@@ -13,6 +13,6 @@ package com.clouway.kcqrs.core
  * @param <T>
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-interface EventHandler<in T : Event> {
+interface EventHandler<in T> {
     fun handle(event: T)
 }

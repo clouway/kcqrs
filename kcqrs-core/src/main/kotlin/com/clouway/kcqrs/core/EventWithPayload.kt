@@ -5,4 +5,4 @@ package com.clouway.kcqrs.core
  * part is used as caching of the serialization as different layers are working either with event or
  * with it's payload.
  */
-data class EventWithPayload(val event: Event, val payload: String)
+data class EventWithPayload(val event: Any, val payload: String)

@@ -1,6 +1,5 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.MessageBus
 import java.io.ByteArrayInputStream
@@ -31,7 +30,7 @@ abstract class AbstractEventHandlerServlet : HttpServlet() {
         }
     }
 
-    abstract fun decode(inputStream: InputStream, type: Class<*>): Event
+    abstract fun decode(inputStream: InputStream, type: Class<*>): Any
 
     abstract fun messageBus(): MessageBus
 

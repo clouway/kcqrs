@@ -21,7 +21,7 @@ interface AggregateRoot {
      *
      * @return
      */
-    fun getUncommittedChanges(): List<Event>
+    fun getUncommittedChanges(): List<Any>
 
     /**
      * Mark all changes a committed
@@ -34,7 +34,7 @@ interface AggregateRoot {
      * @param history
      * @throws HydrationException
      */
-    fun loadFromHistory(history: Iterable<Event>)
+    fun loadFromHistory(history: Iterable<Any>)
 
     /**
      * Returns the version of the aggregate when it was hydrated

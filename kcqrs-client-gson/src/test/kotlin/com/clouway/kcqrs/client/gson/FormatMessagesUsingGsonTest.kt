@@ -13,23 +13,22 @@ import java.time.LocalDateTime
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class FormatMessagesUsingGsonTest {
-    val messageFormat = GsonMessageFormatFactory().createMessageFormat()
+    private val messageFormat = GsonMessageFormatFactory().createMessageFormat()
 
     @Test
     fun parseFormattedMessage() {
 
-        val msg = messageFormat.format(User("Emilia Clark", "Daenerys Targaryen"))
+        val msg = messageFormat.formatToString(User("Emilia Clark", "Daenerys Targaryen"))
 
         val user = messageFormat.parse<User>(ByteArrayInputStream(msg.toByteArray(Charsets.UTF_8)), User::class.java)
         assertThat(user.name, `is`(equalTo("Emilia Clark")))
         assertThat(user.nickname, `is`(equalTo("Daenerys Targaryen")))
     }
 
-
     @Test
     fun encodesLocalDateTimeInISO8601Format() {
-        val jsonPayload = messageFormat.format(DummyLocalDateTime(LocalDateTime.of(2018, 4, 15, 12, 3, 4)))
-        val nullPayload = messageFormat.format(DummyLocalDateTime(null))
+        val jsonPayload = messageFormat.formatToString(DummyLocalDateTime(LocalDateTime.of(2018, 4, 15, 12, 3, 4)))
+        val nullPayload = messageFormat.formatToString(DummyLocalDateTime(null))
         assertThat(jsonPayload, `is`(equalTo("""{"issuedOn":"2018-04-15T12:03:04"}""")))
         assertThat(nullPayload, `is`(equalTo("{}")))
     }
@@ -46,7 +45,7 @@ class FormatMessagesUsingGsonTest {
     
     @Test
     fun using24HourFormat() {
-        val jsonPayload = messageFormat.format(DummyLocalDateTime(LocalDateTime.of(2018, 4, 15, 16, 3, 4)))
+        val jsonPayload = messageFormat.formatToString(DummyLocalDateTime(LocalDateTime.of(2018, 4, 15, 16, 3, 4)))
         assertThat(jsonPayload, `is`(equalTo("""{"issuedOn":"2018-04-15T16:03:04"}""")))
     }
 
@@ -62,8 +61,8 @@ class FormatMessagesUsingGsonTest {
 
     @Test
     fun encodeLocalDateInISO8601Format() {
-        val jsonPayload = messageFormat.format(DummyLocalDate(LocalDate.of(2018, 4, 15)))
-        val nullPayload = messageFormat.format(DummyLocalDate(null))
+        val jsonPayload = messageFormat.formatToString(DummyLocalDate(LocalDate.of(2018, 4, 15)))
+        val nullPayload = messageFormat.formatToString(DummyLocalDate(null))
         assertThat(jsonPayload, `is`(equalTo("""{"issuedOn":"2018-04-15"}""")))
         assertThat(nullPayload, `is`(equalTo("{}")))
     }

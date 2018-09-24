@@ -13,7 +13,7 @@ import java.util.ArrayList
  */
 abstract class AggregateRootBase private constructor(@JvmField protected var aggregateId: String? = "") : AggregateRoot {
 
-    private var changes: ArrayList<Event> = ArrayList()
+    private var changes: ArrayList<Any> = ArrayList()
     private var version = 0L
 
     constructor() : this(null)
@@ -51,11 +51,11 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return version
     }
 
-    override fun getUncommittedChanges(): List<Event> {
+    override fun getUncommittedChanges(): List<Any> {
         return if (changes.isEmpty()) listOf() else changes
     }
 
-    override fun loadFromHistory(history: Iterable<Event>) {
+    override fun loadFromHistory(history: Iterable<Any>) {
         for (event in history) {
             applyChange(event, false)
             version++
@@ -68,7 +68,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
      * @param event
      * @throws HydrationException
      */
-    protected fun applyChange(event: Event) {
+    protected fun applyChange(event: Any) {
         applyChange(event, true)
     }
 
@@ -79,7 +79,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
      * @param isNew
      * @throws HydrationException
      */
-    private fun applyChange(event: Event, isNew: Boolean) {
+    private fun applyChange(event: Any, isNew: Boolean) {
 
         var method: Method? = null
 

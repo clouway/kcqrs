@@ -4,6 +4,8 @@ import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.gson.Gson
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.lang.reflect.Type
 
 /**
@@ -11,12 +13,23 @@ import java.lang.reflect.Type
  */
 
 class TestMessageFormat : MessageFormat {
+
     private val gson = Gson()
     override fun <T> parse(stream: InputStream, type: Type): T {
         return gson.fromJson(InputStreamReader(stream, Charsets.UTF_8), type)
     }
 
-    override fun format(value: Any): String {
+    override fun formatToString(value: Any): String {
         return gson.toJson(value)
+    }
+
+    override fun formatToBytes(value: Any): ByteArray {
+        return gson.toJson(value).toByteArray(Charsets.UTF_8)
+    }
+
+    override fun writeTo(value: Any, stream: OutputStream) {
+        val writer = OutputStreamWriter(stream)
+        gson.toJson(value, writer)
+        writer.close()
     }
 }

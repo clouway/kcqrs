@@ -25,7 +25,7 @@ class SyncEventPublisherTest {
     @JvmField
     val context = JUnitRuleMockery()
 
-    val mockedMessageBus = context.mock(MessageBus::class.java)
+    private val mockedMessageBus = context.mock(MessageBus::class.java)
 
     @Test
     fun handleEvents() {

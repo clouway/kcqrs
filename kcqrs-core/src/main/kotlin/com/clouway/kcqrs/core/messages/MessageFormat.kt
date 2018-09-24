@@ -1,6 +1,8 @@
 package com.clouway.kcqrs.core.messages
 
+import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import java.lang.reflect.Type
 
 /**
@@ -9,14 +11,24 @@ import java.lang.reflect.Type
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 interface MessageFormat {
-
     /**
      * Parses JSON content from the provided input stream.
      */
     fun <T> parse(stream: InputStream, type: Type): T
 
     /**
-     * Formats the provided value into a JSON object
+     * Formats the provided value into string value.
      */
-    fun format(value: Any): String
+    fun formatToString(value: Any): String
+
+    /**
+     * Formats the provided value into binary value.
+     */
+    fun formatToBytes(value: Any): ByteArray
+
+    /**
+     * Writes the content of passed value to the provided output stream.
+     */
+    @Throws(IOException::class)
+    fun writeTo(value: Any, stream: OutputStream)
 }

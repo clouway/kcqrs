@@ -103,7 +103,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             }
 
             val eventsModel = events.mapIndexed { index, it -> EventModel(it.kind, currentVersion + index + 1, it.identityId, it.timestamp, it.data.payload.toString(Charsets.UTF_8)) }
-            val eventsAsText = eventsModel.map { Text(messageFormat.format(it)) }
+            val eventsAsText = eventsModel.map { Text(messageFormat.formatToString(it)) }
 
             aggregateEvents.addAll(eventsAsText)
 

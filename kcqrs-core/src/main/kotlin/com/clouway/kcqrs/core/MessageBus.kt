@@ -65,7 +65,7 @@ interface Interceptor {
 
 }
 
-class SimpleChain(val event: EventWithPayload, private val eventHandlers: List<EventHandler<Event>>) : Interceptor.Chain {
+class SimpleChain(val event: EventWithPayload, private val eventHandlers: List<EventHandler<Any>>) : Interceptor.Chain {
 
     override fun event(): EventWithPayload {
         return event
