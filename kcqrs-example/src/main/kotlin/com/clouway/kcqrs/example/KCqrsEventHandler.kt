@@ -13,9 +13,8 @@ import java.io.InputStreamReader
 class KCqrsEventHandler : AbstractEventHandlerServlet() {
     private val gson = Gson()
 
-    override fun decode(inputStream: InputStream, type: Class<*>): Event {
-        val event = gson.fromJson(InputStreamReader(inputStream, "UTF-8"), type)
-        return event as Event
+    override fun decode(inputStream: InputStream, type: Class<*>): Any {
+        return gson.fromJson(InputStreamReader(inputStream, "UTF-8"), type)
     }
 
     override fun messageBus(): MessageBus {

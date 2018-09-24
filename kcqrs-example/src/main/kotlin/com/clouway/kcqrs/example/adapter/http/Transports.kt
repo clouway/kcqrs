@@ -17,7 +17,7 @@ object Transports {
             if (model == null) {
                 return ""
             }
-            return messageFormat.format(model)
+            return messageFormat.formatToString(model)
         }
     }
 

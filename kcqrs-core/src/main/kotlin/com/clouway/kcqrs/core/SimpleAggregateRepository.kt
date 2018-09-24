@@ -17,7 +17,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
 
         val uncommittedEvents = aggregate.getUncommittedChanges()
 
-        val eventsWithPayload = uncommittedEvents.map { EventWithPayload(it, messageFormat.format(it)) }
+        val eventsWithPayload = uncommittedEvents.map { EventWithPayload(it, messageFormat.formatToString(it)) }
 
         val events = eventsWithPayload.map {
             EventPayload(it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, Binary(it.payload))

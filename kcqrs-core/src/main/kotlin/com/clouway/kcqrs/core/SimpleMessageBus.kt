@@ -16,7 +16,7 @@ class SimpleMessageBus : MessageBus {
     /**                  `
      * List of event handlers per event
      */
-    private val eventHandlers: MutableMap<String, MutableList<EventHandler<Event>>> = mutableMapOf()
+    private val eventHandlers: MutableMap<String, MutableList<EventHandler<Any>>> = mutableMapOf()
 
     /**
      * List of event interceptors
@@ -40,7 +40,7 @@ class SimpleMessageBus : MessageBus {
         }
 
         @Suppress("UNCHECKED_CAST")
-        eventHandlers[key]!!.add(handler as EventHandler<Event>)
+        eventHandlers[key]!!.add(handler as EventHandler<Any>)
     }
 
     override fun registerInterceptor(interceptor: Interceptor) {
