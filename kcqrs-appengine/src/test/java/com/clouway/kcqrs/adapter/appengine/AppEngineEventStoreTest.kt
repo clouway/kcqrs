@@ -362,7 +362,7 @@ class AppEngineEventStoreTest {
     fun saveEventsAfterSnapshotChange() {
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData::"))))
         )
 
         val saveEvents = aggregateBase.saveEvents("Invoice",
@@ -370,7 +370,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 1)
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::", "Invoice")
+        val response = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
@@ -378,7 +378,7 @@ class AppEngineEventStoreTest {
                                 listOf(Aggregate(
                                         saveEvents.aggregateId,
                                         "Invoice",
-                                        Snapshot(0, Binary("::snapshotData::")),
+                                        Snapshot(1, Binary("::snapshotData::")),
                                         2,
                                         listOf(
                                                 EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")),
