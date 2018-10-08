@@ -85,7 +85,7 @@ class SimpleAggregateRepositoryTest {
                 listOf(
                         EventWithPayload(
                                 InvoiceCreatedEvent(invoice.getId()!!, "John"),
-                                """{"invoiceId":"${invoice.getId()}","customerName":"John"}"""
+                                Binary("""{"invoiceId":"${invoice.getId()}","customerName":"John"}""")
                         )
                 )
         ))

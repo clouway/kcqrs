@@ -1,5 +1,6 @@
 package com.clouway.kcqrs.testing
 
+import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.Command
 import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventWithPayload
@@ -25,8 +26,8 @@ class InMemoryMessageBusTest {
     @Test
     fun handleEvents() {
         val messageBus = InMemoryMessageBus()
-        messageBus.handle(EventWithPayload(DummyEvent(), "::payload::"))
-        assertThat(messageBus.handledEvents[0].payload, `is`(equalTo("::payload::")))
+        messageBus.handle(EventWithPayload(DummyEvent(), Binary("::payload::")))
+        assertThat(messageBus.handledEvents[0].payload.payload, `is`(equalTo("::payload::".toByteArray())))
     }
 
     class DummyCommand : Command

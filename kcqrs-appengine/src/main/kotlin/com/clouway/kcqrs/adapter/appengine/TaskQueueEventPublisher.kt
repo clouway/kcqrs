@@ -5,6 +5,7 @@ import com.clouway.kcqrs.core.EventWithPayload
 import com.google.appengine.api.taskqueue.Queue
 import com.google.appengine.api.taskqueue.QueueFactory
 import com.google.appengine.api.taskqueue.TaskOptions
+import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -12,11 +13,13 @@ import com.google.appengine.api.taskqueue.TaskOptions
 internal class TaskQueueEventPublisher(private val handlerEndpoint: String,
                                        private val queueName: String? = null) : EventPublisher {
     override fun publish(events: Iterable<EventWithPayload>) {
+
+
         val tasks = events.map {
             TaskOptions.Builder.withUrl(handlerEndpoint)
                     .method(TaskOptions.Method.POST)
                     .param("type", it.event::class.java.name)
-                    .param("payload", it.payload)
+                    .param("payload", Base64.getEncoder().encodeToString(it.payload.payload))
         }
 
         if (tasks.isEmpty()) {
