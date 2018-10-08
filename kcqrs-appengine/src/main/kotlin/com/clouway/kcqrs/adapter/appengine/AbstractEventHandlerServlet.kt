@@ -1,9 +1,11 @@
 package com.clouway.kcqrs.adapter.appengine
 
+import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.MessageBus
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.util.Base64
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.servlet.http.HttpServlet
@@ -19,11 +21,11 @@ abstract class AbstractEventHandlerServlet : HttpServlet() {
     override fun doPost(req: HttpServletRequest, resp: HttpServletResponse) {
         val type = req.getParameter("type")
         val payload = req.getParameter("payload")
-        
+        val decodedPayload = Base64.getDecoder().decode(payload)
         val clazz = Class.forName(type)
         try {
-            val event = decode(ByteArrayInputStream(payload.toByteArray(Charsets.UTF_8)), clazz)
-            messageBus().handle(EventWithPayload(event, payload))
+            val event = decode(ByteArrayInputStream(decodedPayload), clazz)
+            messageBus().handle(EventWithPayload(event, Binary(decodedPayload)))
         } catch (ex: Exception) {
             logger.log(Level.SEVERE, "Could not handle the received event", ex)
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST)

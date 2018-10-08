@@ -1,5 +1,6 @@
 package com.clouway.kcqrs.client
 
+import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.MessageBus
@@ -31,8 +32,8 @@ class SyncEventPublisherTest {
     fun handleEvents() {
         val messageBus = InMemoryMessageBus()
         val syncEventPublisher = SyncEventPublisher(messageBus)
-        val firstEvent = EventWithPayload(MyEvent("Foo"), "::payload::")
-        val secondEvent = EventWithPayload(MyEvent("Bar"), "::otherPayload::")
+        val firstEvent = EventWithPayload(MyEvent("Foo"), Binary("::payload::"))
+        val secondEvent = EventWithPayload(MyEvent("Bar"), Binary("::otherPayload::"))
         syncEventPublisher.publish(listOf(
                 firstEvent,
                 secondEvent
@@ -44,7 +45,7 @@ class SyncEventPublisherTest {
     @Test
     fun handlingTheMessageThrowsException() {
         val syncEventPublisher = SyncEventPublisher(mockedMessageBus)
-        val firstEvent = EventWithPayload(MyEvent("Foo"), "::payload::")
+        val firstEvent = EventWithPayload(MyEvent("Foo"), Binary("::payload::"))
 
         context.checking(object : Expectations() {
             init {

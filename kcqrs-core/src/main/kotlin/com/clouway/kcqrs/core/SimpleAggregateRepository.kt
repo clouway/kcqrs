@@ -17,10 +17,10 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
 
         val uncommittedEvents = aggregate.getUncommittedChanges()
 
-        val eventsWithPayload = uncommittedEvents.map { EventWithPayload(it, messageFormat.formatToString(it)) }
+        val eventsWithPayload = uncommittedEvents.map { EventWithPayload(it, Binary(messageFormat.formatToBytes(it))) }
 
         val events = eventsWithPayload.map {
-            EventPayload(it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, Binary(it.payload))
+            EventPayload(it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, it.payload)
         }
 
         if (events.isEmpty()) return
@@ -45,7 +45,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             is SaveEventsResponse.EventCollision -> {
                 throw EventCollisionException(aggregate.getId()!!, response.expectedVersion)
             }
-        //The chosen persistence has reached it's limit for events so a snapshot needs to be created.
+            //The chosen persistence has reached it's limit for events so a snapshot needs to be created.
             is SaveEventsResponse.SnapshotRequired -> {
                 val currentAggregate = buildAggregateFromHistory(aggregateClass, response.currentEvents, aggregate.getId()!!, response.currentSnapshot)
 
@@ -101,7 +101,6 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             is GetEventsResponse.Success -> {
                 //we are sure that only one aggregate will be returned
                 return buildAggregateFromHistory(type, response.aggregates[0].events, id, response.aggregates.first().snapshot)
-
             }
             is GetEventsResponse.AggregateNotFound -> {
                 throw AggregateNotFoundException(id)
@@ -113,11 +112,11 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
     private fun <T : AggregateRoot> buildAggregateFromHistory(type: Class<T>, events: List<EventPayload>, id: String, snapshot: Snapshot? = null): T {
         val adapter = AggregateAdapter<T>("apply")
         adapter.fetchMetadata(type)
-        val history = mutableListOf<Event>()
+        val history = mutableListOf<Any>()
 
         events.forEach {
             val eventType = Class.forName(adapter.eventType(it.kind))
-            val event = messageFormat.parse<Event>(ByteArrayInputStream(it.data.payload), eventType)
+            val event = messageFormat.parse<Any>(ByteArrayInputStream(it.data.payload), eventType)
             history.add(event)
         }
 
