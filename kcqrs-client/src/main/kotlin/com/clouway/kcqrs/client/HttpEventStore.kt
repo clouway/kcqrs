@@ -26,7 +26,8 @@ import java.util.Arrays
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class HttpEventStore(private val endpoint: URL,
-                     private val requestFactory: HttpRequestFactory) : EventStore {
+                     private val requestFactory: HttpRequestFactory,
+                     private val timeout: Int = 60000) : EventStore {
 
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
 
@@ -41,7 +42,8 @@ class HttpEventStore(private val endpoint: URL,
             val request = requestFactory.buildPostRequest(
                     GenericUrl(endpoint.toString() + "/v1/aggregates"),
                     JsonHttpContent(GsonFactory.getDefaultInstance(), SaveEventsRequestDto(aggregateId, aggregateType, saveOptions.version, saveOptions.topicName, requestEvents, saveOptions.createSnapshot.required, snapshotDto))
-            )
+            ).setConnectTimeout(timeout).setReadTimeout(timeout)
+
             request.throwExceptionOnExecuteError = false
 
             val response = request.execute()
@@ -80,6 +82,7 @@ class HttpEventStore(private val endpoint: URL,
         val ids = aggregateIds.joinToString(",")
 
         val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates?ids=$ids&aggregateType=$aggregateType"))
+                .setConnectTimeout(timeout).setReadTimeout(timeout)
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -118,6 +121,7 @@ class HttpEventStore(private val endpoint: URL,
 
     override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
         val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId?aggregateType=$aggregateType"))
+                .setConnectTimeout(timeout).setReadTimeout(timeout)
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
@@ -158,7 +162,7 @@ class HttpEventStore(private val endpoint: URL,
         val request = requestFactory.buildPatchRequest(
                 GenericUrl(endpoint.toString() + "/v1/aggregates/$aggregateId?&aggregateType=$aggregateType"),
                 JsonHttpContent(GsonFactory.getDefaultInstance(), RevertEventsRequestDto(aggregateId, count))
-        )
+        ).setConnectTimeout(timeout).setReadTimeout(timeout)
         request.throwExceptionOnExecuteError = false
         try {
             val response = request.execute()
