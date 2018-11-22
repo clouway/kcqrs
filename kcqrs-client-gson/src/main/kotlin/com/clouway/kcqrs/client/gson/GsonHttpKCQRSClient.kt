@@ -2,7 +2,16 @@ package com.clouway.kcqrs.client.gson
 
 import com.clouway.kcqrs.client.HttpEventStore
 import com.clouway.kcqrs.client.SyncEventPublisher
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.AggregateRepository
+import com.clouway.kcqrs.core.AuthoredAggregateRepository
+import com.clouway.kcqrs.core.Configuration
+import com.clouway.kcqrs.core.EventPublisher
+import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.IdentityProvider
+import com.clouway.kcqrs.core.Kcqrs
+import com.clouway.kcqrs.core.MessageBus
+import com.clouway.kcqrs.core.SimpleAggregateRepository
+import com.clouway.kcqrs.core.SimpleMessageBus
 import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -32,7 +41,8 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
 
     class Builder(private val configuration: Configuration,
                   private val endpoint: URL,
-                  private val transport: HttpTransport) {
+                  private val transport: HttpTransport,
+                  private val timeout: Int = 60000) {
 
         val messageBus = SimpleMessageBus()
         var identityProvider: IdentityProvider = IdentityProvider.Default()
@@ -47,7 +57,8 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
                     transport.createRequestFactory { request ->
                         request.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
                         requestInitializer.initialize(request)
-                    }
+                    },
+                    timeout
             )
             
             val messageFormat = GsonMessageFormatFactory().createMessageFormat()
