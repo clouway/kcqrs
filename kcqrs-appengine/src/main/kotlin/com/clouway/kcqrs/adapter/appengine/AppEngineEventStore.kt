@@ -237,7 +237,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         val aggregate = try {
             dataStore.get(aggregateKey)
         } catch (ex: EntityNotFoundException) {
-            return GetEventsResponse.AggregateNotFound
+            return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
         }
 
         @Suppress("UNCHECKED_CAST")
@@ -284,7 +284,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
                 if (count > aggregateEvents.size) {
-                    return RevertEventsResponse.ErrorNotEnoughEventsToRevert
+                    return RevertEventsResponse.ErrorNotEnoughEventsToRevert(aggregateEvents.size, count)
                 }
 
                 val lastEventIndex = aggregateEvents.size - count
@@ -302,7 +302,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 transaction.commit()
 
             } catch (ex: EntityNotFoundException) {
-                return RevertEventsResponse.AggregateNotFound
+                return RevertEventsResponse.AggregateNotFound(aggregateId, aggregateType)
             }
 
         } catch (ex: Exception) {
@@ -313,7 +313,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             }
         }
 
-        return RevertEventsResponse.Success
+        return RevertEventsResponse.Success(listOf())
     }
 
     private fun aggregateKey(aggregateType: String, aggregateId: String, aggregateIndex: Long) =

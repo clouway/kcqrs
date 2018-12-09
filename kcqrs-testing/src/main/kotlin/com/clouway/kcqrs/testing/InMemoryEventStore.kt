@@ -49,7 +49,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
     override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
         val key = aggregateKey(aggregateType, aggregateId)
         if (!idToAggregate.containsKey(key)) {
-            return GetEventsResponse.AggregateNotFound
+            return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
         }
 
         val aggregate = idToAggregate[key]!!
@@ -85,7 +85,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
 
         idToAggregate[aggregateKey(aggregateType, aggregateId)] = StoredAggregate(aggregate.aggregateId, aggregate.aggregateType, updatedEvents, aggregate.snapshot)
 
-        return RevertEventsResponse.Success
+        return RevertEventsResponse.Success(listOf())
     }
 
     fun pretendThatNextSaveWillReturn(response: SaveEventsResponse) {

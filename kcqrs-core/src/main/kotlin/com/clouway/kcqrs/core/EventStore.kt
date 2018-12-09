@@ -73,7 +73,7 @@ sealed class SaveEventsResponse {
     /**
      * Returned when there is an communication error
      */
-    object ErrorInCommunication : SaveEventsResponse()
+    data class ErrorInCommunication(val message: String) : SaveEventsResponse()
 
     /**
      * Returned when aggregate's current Events persistence limit has been reached.
@@ -86,26 +86,25 @@ sealed class GetEventsResponse {
 
     data class Success(val aggregates: List<Aggregate>) : GetEventsResponse()
 
-    object SnapshotNotFound : GetEventsResponse()
+    data class SnapshotNotFound(val aggregateId: String, val aggregateType: String) : GetEventsResponse()
 
-    object AggregateNotFound : GetEventsResponse()
+    data class AggregateNotFound(val aggregateIds: List<String>, val aggregateType: String) : GetEventsResponse()
 
     data class Error(val message: String) : GetEventsResponse()
-
     /**
      * Returned when there is an communication error
      */
-    object ErrorInCommunication : GetEventsResponse()
+    data class ErrorInCommunication(val message: String) : GetEventsResponse()
 
 }
 
 sealed class RevertEventsResponse {
 
-    object Success : RevertEventsResponse()
+    data class Success(val eventIds: List<String>) : RevertEventsResponse()
 
-    object AggregateNotFound : RevertEventsResponse()
+    data class AggregateNotFound(val aggregateId: String, val aggregateType: String) : RevertEventsResponse()
 
-    object ErrorNotEnoughEventsToRevert : RevertEventsResponse()
+    data class ErrorNotEnoughEventsToRevert(val available: Int, val requested: Int) : RevertEventsResponse()
 
     data class Error(val message: String) : RevertEventsResponse()
 }
