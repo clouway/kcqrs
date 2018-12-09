@@ -72,7 +72,7 @@ class HttpEventStore(private val endpoint: URL,
             }
 
         } catch (ex: IOException) {
-            return SaveEventsResponse.ErrorInCommunication
+            return SaveEventsResponse.ErrorInCommunication(ex.message!!)
         }
 
         return SaveEventsResponse.Error("Generic Error")
@@ -89,7 +89,7 @@ class HttpEventStore(private val endpoint: URL,
 
             // Aggregate was not found and no events cannot be returned
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
-                return GetEventsResponse.AggregateNotFound
+                return GetEventsResponse.AggregateNotFound(aggregateIds, aggregateType)
             }
 
             if (response.isSuccessStatusCode) {
@@ -115,7 +115,7 @@ class HttpEventStore(private val endpoint: URL,
             return GetEventsResponse.Error("got unknown error")
 
         } catch (ex: IOException) {
-            return GetEventsResponse.ErrorInCommunication
+            return GetEventsResponse.ErrorInCommunication(ex.message!!)
         }
     }
 
@@ -128,7 +128,7 @@ class HttpEventStore(private val endpoint: URL,
 
             // Aggregate was not found and no events cannot be returned
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
-                return GetEventsResponse.AggregateNotFound
+                return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
             }
 
             if (response.isSuccessStatusCode) {
@@ -154,7 +154,7 @@ class HttpEventStore(private val endpoint: URL,
             return GetEventsResponse.Error("got unknown error")
 
         } catch (ex: IOException) {
-            return GetEventsResponse.ErrorInCommunication
+            return GetEventsResponse.ErrorInCommunication(ex.message!!)
         }
     }
 
@@ -169,11 +169,11 @@ class HttpEventStore(private val endpoint: URL,
 
             // Aggregate was not found, so no events cannot be returned
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
-                return RevertEventsResponse.AggregateNotFound
+                return RevertEventsResponse.AggregateNotFound(aggregateId, aggregateType)
             }
 
             if (response.isSuccessStatusCode) {
-                return RevertEventsResponse.Success
+                return RevertEventsResponse.Success(listOf())
             }
 
             return RevertEventsResponse.Error("Generic Error")

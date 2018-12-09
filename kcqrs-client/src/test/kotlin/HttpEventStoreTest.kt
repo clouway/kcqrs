@@ -130,7 +130,7 @@ class HttpEventStoreTest {
                 listOf(EventPayload("::kind::", 1L, "::user id::", Binary("::event data::"))),
                 SaveOptions(aggregateId)) as SaveEventsResponse.ErrorInCommunication
 
-        assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.ErrorInCommunication)))
+        assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.ErrorInCommunication("unable to connect"))))
     }
 
     @Test
