@@ -97,7 +97,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             }
 
             @Suppress("UNCHECKED_CAST")
-            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<Text>
+            val aggregateEvents = getTextList(aggregateEntity.getProperty(eventsProperty))
             val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
             /**
@@ -201,9 +201,8 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 }
             }
             val aggregateId = snapshotKeyToAggregateId[snapshotKey]!!
-            val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as List<*>
             val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
-            val events = adaptEvents(aggregateEvents.filterIsInstance(Text::class.java))
+            val events = adaptEvents(getTextList(aggregateEntity.getProperty(eventsProperty)))
 
             aggregates.add(Aggregate(aggregateId, aggregateType, snapshot, currentVersion, events))
         }
@@ -241,7 +240,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         }
 
         @Suppress("UNCHECKED_CAST")
-        val aggregateEvents = aggregate.getProperty(eventsProperty) as List<Text>
+        val aggregateEvents = getTextList(aggregate.getProperty(eventsProperty))
         val currentVersion = aggregate.getProperty(versionProperty) as Long
 
         val events = aggregateEvents.map {
@@ -280,7 +279,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 val aggregateEntity = dataStore.get(transaction, aggregateKey)
 
                 @Suppress("UNCHECKED_CAST")
-                val aggregateEvents = aggregateEntity.getProperty(eventsProperty) as MutableList<Text>
+                val aggregateEvents = getTextList(aggregateEntity.getProperty(eventsProperty))
                 val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
 
                 if (count > aggregateEvents.size) {
@@ -329,6 +328,20 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         return aggregateEvents.map {
             messageFormat.parse<EventModel>(ByteArrayInputStream(it.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
         }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
+    }
+
+    private fun getTextList(value: Any): MutableList<Text> {
+        return if (value is List<*>) {
+            value.map {
+                if (it is String) {
+                    Text(it)
+                } else {
+                    it as Text
+                }
+            }.toMutableList()
+        } else {
+            mutableListOf()
+        }
     }
 
 }
