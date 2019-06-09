@@ -35,6 +35,11 @@ interface EventStore {
     fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse
 
     /**
+     * Gets all events starting from given position of the aggregate.
+     */
+    fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse
+    
+    /**
      * Reverts last events that are stored for the aggregate.
      */
     fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse
@@ -58,7 +63,7 @@ sealed class SaveEventsResponse {
     /**
      * Returned when save operation was successfully executed.
      */
-    data class Success(val aggregateId: String, val version: Long) : SaveEventsResponse()
+    data class Success(val aggregateId: String, val version: Long, val sequenceIds: List<Long>) : SaveEventsResponse()
 
     /**
      * Returned when concurrent modification of the aggregate was executed and update was failed due collision.
@@ -80,6 +85,18 @@ sealed class SaveEventsResponse {
      */
 
     data class SnapshotRequired(val currentEvents: List<EventPayload>, val currentSnapshot: Snapshot? = null) : SaveEventsResponse()
+}
+
+
+
+data class GetAllEventsRequest(val position: Position?, val maxCount: Int, val readDirection: ReadDirection = ReadDirection.FORWARD)
+
+sealed class GetAllEventsResponse {
+    data class Success(val events:List<IndexedEvent>, val readDirection: ReadDirection, val nextPosition: Position?) : GetAllEventsResponse()
+
+    data class Error(val message: String) : GetAllEventsResponse()
+
+    data class ErrorInCommunication(val message: String) : GetAllEventsResponse()
 }
 
 sealed class GetEventsResponse {
@@ -140,3 +157,4 @@ data class Binary(val payload: ByteArray) {
         return "Binary(payload=${payload.toString(Charsets.UTF_8)})"
     }
 }
+

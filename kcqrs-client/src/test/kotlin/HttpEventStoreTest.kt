@@ -1,14 +1,7 @@
 import com.clouway.kcqrs.client.HttpEventStore
-import com.clouway.kcqrs.core.Aggregate
-import com.clouway.kcqrs.core.Binary
-import com.clouway.kcqrs.core.CreateSnapshot
-import com.clouway.kcqrs.core.EventPayload
-import com.clouway.kcqrs.core.GetEventsResponse
-import com.clouway.kcqrs.core.RevertEventsResponse
-import com.clouway.kcqrs.core.SaveEventsResponse
-import com.clouway.kcqrs.core.SaveOptions
-import com.clouway.kcqrs.core.Snapshot
+import com.clouway.kcqrs.core.*
 import com.google.api.client.http.HttpStatusCodes
+import com.google.api.client.http.LowLevelHttpRequest
 import com.google.api.client.http.LowLevelHttpResponse
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.testing.http.MockHttpTransport
@@ -25,7 +18,7 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URL
-import java.util.UUID
+import java.util.*
 
 
 /**
@@ -46,7 +39,7 @@ class HttpEventStoreTest {
         val transport = MockHttpTransport.Builder()
                 .setLowLevelHttpResponse(MockLowLevelHttpResponse()
                         .setStatusCode(HttpStatusCodes.STATUS_CODE_CREATED)
-                        .setContent("""{"aggregateId": "$aggregateId","version": 4}"""))
+                        .setContent("""{"aggregateId": "$aggregateId","version": 4, "sequenceIds": [1,2,3]}"""))
                 .build()
 
         val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
@@ -54,7 +47,7 @@ class HttpEventStoreTest {
         })
         val response = store.saveEvents("Invoice", listOf(EventPayload("::kind::", 1L, "::user::", Binary("::event data::"))), SaveOptions(aggregateId)) as SaveEventsResponse.Success
 
-        assertThat(response, `is`(Matchers.equalTo(SaveEventsResponse.Success(aggregateId, 4))))
+        assertThat(response, `is`(equalTo(SaveEventsResponse.Success(aggregateId, 4, listOf(1L, 2L, 3L)))))
     }
 
     @Test
@@ -225,7 +218,7 @@ class HttpEventStoreTest {
             it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
         })
 
-        val result = store.getEvents(aggregateId,"Invoice") as GetEventsResponse.Success
+        val result = store.getEvents(aggregateId, "Invoice") as GetEventsResponse.Success
         assertThat(result.aggregates, hasItems(
                 Aggregate(
                         aggregateId,
@@ -257,6 +250,159 @@ class HttpEventStoreTest {
         store.getEvents(aggregateId, "Invoice") as GetEventsResponse.AggregateNotFound
     }
 
+    @Test
+    fun retrieveAllEvents() {
+        val aggregateId = randomAggregateId()
+
+        val responsePayload = """
+            {"events": [
+                  {
+                    "position": 1,
+                    "aggregateId": "$aggregateId",
+                    "aggregateType": "Invoice",
+                    "version": 1,
+                    "payload":  {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"}
+                  },
+                  {
+                    "position": 2,
+                    "aggregateId": "$aggregateId",
+                    "aggregateType": "Invoice",
+                    "version": 1,
+                    "payload":  {"kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"}
+                  },
+                  {
+                    "position": 3,
+                    "aggregateId": "$aggregateId",
+                    "aggregateType": "Invoice",
+                    "version": 1,
+                    "payload":  {"kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
+                  },
+              ],
+              "readDirection": "FORWARD",
+              "nextPosition": 4
+            }
+            """.trimIndent()
+
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+                        .setStatusCode(HttpStatusCodes.STATUS_CODE_OK)
+                        .setContent(responsePayload))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val result = store.getAllEvents(GetAllEventsRequest(null, 5)) as GetAllEventsResponse.Success
+        assertThat(result.nextPosition, `is`(equalTo(Position(4L))))
+        assertThat(result.readDirection, `is`(equalTo(ReadDirection.FORWARD)))
+        assertThat(result.events, hasItems(
+                IndexedEvent(Position(1L), aggregateId, "Invoice", 1L, EventPayload("::kind 1::", 1L, "::user::", Binary("::event data::"))),
+                IndexedEvent(Position(2L), aggregateId, "Invoice", 1L, EventPayload("::kind 2::", 2L, "::user::", Binary("::event data::"))),
+                IndexedEvent(Position(3L), aggregateId, "Invoice", 1L, EventPayload("::kind 3::", 3L, "::user::", Binary("::event data::")))
+        ))
+    }
+
+    @Test
+    fun noEventsToRetrieve() {
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+                        .setStatusCode(HttpStatusCodes.STATUS_CODE_NOT_FOUND)
+                        .setContent(""))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val result = store.getAllEvents(GetAllEventsRequest(null, 5)) as GetAllEventsResponse.Success
+        assertThat(result, `is`(equalTo(GetAllEventsResponse.Success(listOf(), ReadDirection.FORWARD, null))))
+    }
+
+
+    @Test
+    fun getAllEventsWasFailed() {
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+                        .setStatusCode(HttpStatusCodes.STATUS_CODE_SERVER_ERROR)
+                        .setContent(""))
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        val result = store.getAllEvents(GetAllEventsRequest(null, 5)) as GetAllEventsResponse.Error
+
+        assertThat(result, `is`(equalTo(GetAllEventsResponse.Error("got unknown error"))))
+    }
+
+    @Test
+    fun getAllEventsPassesRequestParams() {
+        val calls = mutableListOf<String>()
+        val transport = object : MockHttpTransport() {
+            override fun buildRequest(method: String, url: String): LowLevelHttpRequest {
+                calls.add("$method:$url")
+                return MockLowLevelHttpRequest()
+                        .setResponse(MockLowLevelHttpResponse()
+                                .setStatusCode(HttpStatusCodes.STATUS_CODE_SERVER_ERROR)
+                                .setContent("")
+                        )
+            }
+        }
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.getAllEvents(GetAllEventsRequest(Position(3), 5, ReadDirection.FORWARD))
+
+        assertThat(calls, `is`(equalTo(listOf(
+                "GET:http://localhost:8080/v2/aggregates/\$all?fromPosition=3&maxCount=5&readDirection=FORWARD"
+        ))))
+    }
+
+    @Test
+    fun getAllEventsPassesAnotherParams() {
+        val calls = mutableListOf<String>()
+        val transport = object : MockHttpTransport() {
+            override fun buildRequest(method: String, url: String): LowLevelHttpRequest {
+                calls.add("$method:$url")
+                return MockLowLevelHttpRequest()
+                        .setResponse(MockLowLevelHttpResponse()
+                                .setStatusCode(HttpStatusCodes.STATUS_CODE_SERVER_ERROR)
+                                .setContent("")
+                        )
+            }
+        }
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.getAllEvents(GetAllEventsRequest(null, 4, ReadDirection.FORWARD))
+
+        assertThat(calls, `is`(equalTo(listOf(
+                "GET:http://localhost:8080/v2/aggregates/\$all?fromPosition=0&maxCount=4&readDirection=FORWARD"
+        ))))
+    }
+
+    @Test
+    fun getAllEventsFailedWithcommunicationError() {
+        val transport = MockHttpTransport.Builder()
+                .setLowLevelHttpRequest(object : MockLowLevelHttpRequest() {
+                    override fun execute(): LowLevelHttpResponse {
+                        throw IOException("communication error")
+                    }
+                })
+                .build()
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.getAllEvents(GetAllEventsRequest(null, 5)) as GetAllEventsResponse.ErrorInCommunication
+    }
 
     @Test
     fun retrieveButNoEvents() {

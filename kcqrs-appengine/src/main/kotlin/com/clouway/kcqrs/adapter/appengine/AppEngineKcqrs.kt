@@ -35,7 +35,7 @@ class AppEngineKcqrs private constructor(private val messageBus: MessageBus,
         var kcqrsHandlerEndpoint = "/worker/kcqrs"
         var queueName: String? = null
         var identityProvider: IdentityProvider = IdentityProvider.Default()
-        var eventStore = AppEngineEventStore(kind, messageFormatFactory.createMessageFormat())
+        var eventStore = AppEngineEventStore(kind, messageFormatFactory.createMessageFormat(), IdGenerators.snowflake())
         var eventPublisher: EventPublisher = TaskQueueEventPublisher(kcqrsHandlerEndpoint, queueName)
 
         fun build(init: Builder.() -> Unit): Kcqrs {

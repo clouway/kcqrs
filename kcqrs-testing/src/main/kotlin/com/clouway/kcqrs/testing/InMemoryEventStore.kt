@@ -3,7 +3,11 @@ package com.clouway.kcqrs.testing
 import com.clouway.kcqrs.core.Aggregate
 import com.clouway.kcqrs.core.EventPayload
 import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.GetAllEventsRequest
+import com.clouway.kcqrs.core.GetAllEventsResponse
 import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.IndexedEvent
+import com.clouway.kcqrs.core.Position
 import com.clouway.kcqrs.core.RevertEventsResponse
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
@@ -43,7 +47,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         aggregate.events.addAll(events)
         idToAggregate[aggregateKey] = aggregate
 
-        return SaveEventsResponse.Success(saveOptions.aggregateId, aggregate.events.size.toLong())
+        return SaveEventsResponse.Success(saveOptions.aggregateId, aggregate.events.size.toLong(),(0..events.size).map { it.toLong() } )
     }
 
     override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
@@ -75,6 +79,19 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
             )
         }
         return GetEventsResponse.Success(aggregates)
+    }
+
+    override fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse {
+        var positionId = 1L
+        val result = mutableListOf<IndexedEvent>()
+
+        idToAggregate.values.forEach { aggregate ->
+            aggregate.events.forEach { event ->
+                result.add(IndexedEvent(Position(positionId), aggregate.aggregateId, aggregate.aggregateType, positionId, event))
+                positionId++
+            }
+        }
+        return GetAllEventsResponse.Success(result, request.readDirection, Position(positionId))
     }
 
     override fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse {

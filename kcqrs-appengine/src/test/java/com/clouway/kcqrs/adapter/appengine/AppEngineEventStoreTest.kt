@@ -1,14 +1,6 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.Aggregate
-import com.clouway.kcqrs.core.Binary
-import com.clouway.kcqrs.core.CreateSnapshot
-import com.clouway.kcqrs.core.EventPayload
-import com.clouway.kcqrs.core.GetEventsResponse
-import com.clouway.kcqrs.core.RevertEventsResponse
-import com.clouway.kcqrs.core.SaveEventsResponse
-import com.clouway.kcqrs.core.SaveOptions
-import com.clouway.kcqrs.core.Snapshot
+import com.clouway.kcqrs.core.*
 import com.clouway.kcqrs.testing.TestMessageFormat
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig
 import com.google.appengine.tools.development.testing.LocalServiceTestHelper
@@ -21,14 +13,15 @@ import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import java.util.UUID
+import java.util.*
+
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class AppEngineEventStoreTest {
     private val helper = LocalServiceTestHelper(LocalDatastoreServiceTestConfig()
-            .setDefaultHighRepJobPolicyUnappliedJobPercentage(100f))
+            .setDefaultHighRepJobPolicyUnappliedJobPercentage(0f))
 
     @Before
     fun setUp() {
@@ -40,7 +33,7 @@ class AppEngineEventStoreTest {
         helper.tearDown()
     }
 
-    private val aggregateBase = AppEngineEventStore("Event", TestMessageFormat())
+    private val aggregateBase = AppEngineEventStore("Event", TestMessageFormat(), IdGenerators.snowflake())
 
     @Test
     fun getEventsThatAreStored() {
@@ -291,6 +284,136 @@ class AppEngineEventStoreTest {
     }
 
     @Test
+    fun getAllEventsAndSingleIsAvailable() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))
+        )
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(null, 5, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(1)))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.nextPosition!!.value, `is`(equalTo(response.events[0].position.value)))
+    }
+
+    @Test
+    fun getAllEventsAndMultipleAreAvailable() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(
+                        EventPayload("::kind1::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind2::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind3::", 1L, "::user 1::", Binary("::data::"))
+                ),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        )
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(null, 5, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(3)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind1::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[1].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[1].payload, `is`(equalTo(EventPayload("::kind2::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[2].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[2].payload, `is`(equalTo(EventPayload("::kind3::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.nextPosition!!.value, `is`(equalTo(response.events[2].position.value)))
+    }
+
+    @Test
+    fun getAllEventsOfMultipleAggregates() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        )
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 2::")
+        )
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(null, 5, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(2)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[1].aggregateId, `is`(equalTo("::aggregate 2::")))
+        assertThat(response.events[1].payload, `is`(equalTo(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")))))
+    }
+
+    @Test
+    fun onlyMaxCountIsRetrieved() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(
+                        EventPayload("::kind1::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind2::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind3::", 1L, "::user 1::", Binary("::data::"))
+                ),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        )
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(null, 2, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+        assertThat(response.events.size, `is`(equalTo(2)))
+    }
+
+    @Test
+    fun readFromRequestedPosition() {
+        val saveResponse = aggregateBase.saveEvents("Invoice",
+                listOf(
+                        EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind 3::", 1L, "::user 1::", Binary("::data::"))
+                ),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        ) as SaveEventsResponse.Success
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(Position(saveResponse.sequenceIds[0]), 3, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(2)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[1].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[1].payload, `is`(equalTo(EventPayload("::kind 3::", 1L, "::user 1::", Binary("::data::")))))
+    }
+
+    @Test
+    fun readFromRequestedPositionWhenMultipleAggregates() {
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        ) as SaveEventsResponse.Success
+
+        val saveResponse = aggregateBase.saveEvents("Invoice",
+                        listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
+                        saveOptions = SaveOptions(aggregateId = "::aggregate 2::")
+                ) as SaveEventsResponse.Success
+        
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(Position(saveResponse.sequenceIds[0] - 1), 3, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(1)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 2::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")))))
+    }
+
+    @Test
+    fun readFromBack() {
+        val saveResponse = aggregateBase.saveEvents("Invoice",
+                listOf(
+                        EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")),
+                        EventPayload("::kind 3::", 1L, "::user 1::", Binary("::data::"))
+                ),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        ) as SaveEventsResponse.Success
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(Position(saveResponse.sequenceIds[2] + 1), 3, ReadDirection.BACKWARD)) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(3)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind 3::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[1].payload, `is`(equalTo(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[2].payload, `is`(equalTo(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")))))
+    }
+
+    @Test
     fun returningManyEventsOnLimitReached() {
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
@@ -337,7 +460,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         ) as SaveEventsResponse.Success
 
-        val response = aggregateBase.getEvents("::aggregateId::","Invoice")
+        val response = aggregateBase.getEvents("::aggregateId::", "Invoice")
         when (response) {
             is GetEventsResponse.Success -> {
                 assertThat(response, `is`(equalTo((
