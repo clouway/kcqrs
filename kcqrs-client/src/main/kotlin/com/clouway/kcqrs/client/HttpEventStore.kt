@@ -4,7 +4,11 @@ import com.clouway.kcqrs.core.Aggregate
 import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.EventPayload
 import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.GetAllEventsRequest
+import com.clouway.kcqrs.core.GetAllEventsResponse
 import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.IndexedEvent
+import com.clouway.kcqrs.core.Position
 import com.clouway.kcqrs.core.RevertEventsResponse
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
@@ -18,7 +22,8 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.Key
 import java.io.IOException
 import java.net.URL
-import java.util.Arrays
+import java.net.URLEncoder
+import java.util.*
 
 /**
  * HttpEventStore is an implementation of EventStore which uses REST api for storing and retrieving of events.
@@ -50,7 +55,7 @@ class HttpEventStore(private val endpoint: URL,
 
             if (response.isSuccessStatusCode) {
                 val resp = response.parseAs(SaveEventsResponseDto::class.java)
-                return SaveEventsResponse.Success(aggregateId, resp.version)
+                return SaveEventsResponse.Success(aggregateId, resp.version, resp.sequenceIds)
             }
 
             if (response.statusCode == HttpStatusCodes.STATUS_CODE_CONFLICT) {
@@ -158,6 +163,44 @@ class HttpEventStore(private val endpoint: URL,
         }
     }
 
+    override fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse {
+        val all = URLEncoder.encode("\$all", "UTF-8")
+        val url = endpoint.toString() + "/v2/aggregates/$all?fromPosition=${request.position?.value
+                        ?: 0}&maxCount=${request.maxCount}&readDirection=${request.readDirection.name}"
+        val req = requestFactory.buildGetRequest(GenericUrl(url))
+                .setConnectTimeout(timeout).setReadTimeout(timeout)
+        req.throwExceptionOnExecuteError = false
+        try {
+            val response = req.execute()
+
+            // Aggregate was not found and no events cannot be returned
+            if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
+                return GetAllEventsResponse.Success(listOf(), request.readDirection, null)
+            }
+
+            if (response.isSuccessStatusCode) {
+                val resp = response.parseAs(GetAllEventsResponseDto::class.java)
+                val events = resp.events.map {
+                    IndexedEvent(
+                            Position(it.position),
+                            it.aggregateId,
+                            it.aggregateType,
+                            it.version,
+                            EventPayload(it.payload.kind, it.payload.timestamp, it.payload.identityId, Binary(it.payload.payload))
+                    )
+                }
+
+                return GetAllEventsResponse.Success(events, request.readDirection, Position(resp.nextPosition ?: 0))
+            }
+
+            return GetAllEventsResponse.Error("got unknown error")
+
+        } catch (ex: IOException) {
+            return GetAllEventsResponse.ErrorInCommunication(ex.message!!)
+        }
+
+    }
+
     override fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse {
         val request = requestFactory.buildPatchRequest(
                 GenericUrl(endpoint.toString() + "/v1/aggregates/$aggregateId?&aggregateType=$aggregateType"),
@@ -185,6 +228,27 @@ class HttpEventStore(private val endpoint: URL,
 
 }
 
+internal data class GetAllEventsResponseDto(
+        @Key @JvmField var events: List<IndexedEventDto>,
+        @Key @JvmField var readDirection: String?,
+        @Key @JvmField var nextPosition: Long?
+) : GenericJson() {
+    @Suppress("UNUSED")
+    constructor() : this(mutableListOf(), null, 0L)
+}
+
+internal data class IndexedEventDto(
+        @Key @JvmField var position: Long,
+        @Key @JvmField var aggregateId: String,
+        @Key @JvmField var aggregateType: String,
+        @Key @JvmField var version: Long,
+        @Key @JvmField var payload: EventPayloadDto
+) : GenericJson() {
+    @Suppress("UNUSED")
+    constructor() : this(0L, "", "", 0L, EventPayloadDto("", 0L, "", ""))
+}
+
+
 internal data class GetEventsResponseDto(@Key @JvmField var aggregates: List<AggregateDto>) : GenericJson() {
     @Suppress("UNUSED")
     constructor() : this(mutableListOf())
@@ -204,9 +268,9 @@ internal data class SaveEventsRequestDto(@Key @JvmField var aggregateId: String,
     constructor() : this("", "", 0L, "", mutableListOf(), false, null)
 }
 
-internal data class SaveEventsResponseDto(@Key @JvmField var aggregateId: String, @Key @JvmField var version: Long) : GenericJson() {
+internal data class SaveEventsResponseDto(@Key @JvmField var aggregateId: String, @Key @JvmField var version: Long, @Key @JvmField var sequenceIds: List<Long>) : GenericJson() {
     @Suppress("UNUSED")
-    constructor() : this("", 0L)
+    constructor() : this("", 0L, listOf())
 }
 
 internal data class RevertEventsRequestDto(@Key @JvmField var aggregateId: String, @Key @JvmField var count: Int) : GenericJson() {
