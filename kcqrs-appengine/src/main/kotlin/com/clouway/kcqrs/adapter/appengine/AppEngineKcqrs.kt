@@ -1,6 +1,17 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.AggregateRepository
+import com.clouway.kcqrs.core.AuthoredAggregateRepository
+import com.clouway.kcqrs.core.Configuration
+import com.clouway.kcqrs.core.EventPublisher
+import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.IdGenerator
+import com.clouway.kcqrs.core.IdGenerators
+import com.clouway.kcqrs.core.IdentityProvider
+import com.clouway.kcqrs.core.Kcqrs
+import com.clouway.kcqrs.core.MessageBus
+import com.clouway.kcqrs.core.SimpleAggregateRepository
+import com.clouway.kcqrs.core.SimpleMessageBus
 import com.clouway.kcqrs.core.messages.MessageFormatFactory
 
 
@@ -35,7 +46,8 @@ class AppEngineKcqrs private constructor(private val messageBus: MessageBus,
         var kcqrsHandlerEndpoint = "/worker/kcqrs"
         var queueName: String? = null
         var identityProvider: IdentityProvider = IdentityProvider.Default()
-        var eventStore = AppEngineEventStore(kind, messageFormatFactory.createMessageFormat(), IdGenerators.snowflake())
+        var idGenerator: IdGenerator = IdGenerators.snowflake()
+        var eventStore = AppEngineEventStore(kind, messageFormatFactory.createMessageFormat(), idGenerator)
         var eventPublisher: EventPublisher = TaskQueueEventPublisher(kcqrsHandlerEndpoint, queueName)
 
         fun build(init: Builder.() -> Unit): Kcqrs {
