@@ -24,7 +24,7 @@ object IdGenerators {
         // are created
         if (nodeId != null) {
             // Make sure that nodeId not exceeds it's size
-            return SnowflakeIdGenerator(nodeId.hashCode() % 1024,epoch)
+            return SnowflakeIdGenerator(Math.abs(nodeId.hashCode() % 1023), epoch)
         }
         
         return SnowflakeIdGenerator()

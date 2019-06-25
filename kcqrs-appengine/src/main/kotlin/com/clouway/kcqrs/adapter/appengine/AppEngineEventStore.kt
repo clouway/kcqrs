@@ -119,7 +119,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 val sequenceId = sequenceIds[index]
                 val eventIndex = Entity(indexKind, eventModel.version, aggregateKey)
                 eventIndex.setUnindexedProperty(aggregateIdProperty, aggregateId)
-                eventIndex.setUnindexedProperty(aggregateTypeProperty, aggregateType)
+                eventIndex.setIndexedProperty(aggregateTypeProperty, aggregateType)
                 eventIndex.setUnindexedProperty(aggregateIndexProperty, aggregateIndex)
                 eventIndex.setUnindexedProperty(versionProperty, eventModel.version)
                 eventIndex.setIndexedProperty(sequenceProperty, sequenceId)
@@ -280,7 +280,16 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             Query.FilterPredicate(sequenceProperty, Query.FilterOperator.LESS_THAN, startSequenceId)
         }
 
-        var eventKeys = dataStore.prepare(Query(indexKind).setFilter(eventsFilterPredicate))
+        var filter: Query.Filter = eventsFilterPredicate
+
+
+        if (!request.aggregateTypes.isEmpty()) {
+            filter = Query.CompositeFilter(Query.CompositeFilterOperator.AND, listOf(
+                    eventsFilterPredicate, Query.FilterPredicate(aggregateTypeProperty, Query.FilterOperator.IN, request.aggregateTypes)
+            ))
+        }
+        
+        var eventKeys = dataStore.prepare(Query(indexKind).setFilter(filter))
                 .asIterable(FetchOptions.Builder.withLimit(request.maxCount))
                 .map {
                     val aggregateType = it.getProperty(aggregateTypeProperty) as String

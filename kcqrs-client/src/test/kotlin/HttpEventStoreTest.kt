@@ -362,6 +362,32 @@ class HttpEventStoreTest {
         ))))
     }
 
+    
+    @Test
+    fun getAllEventsPassesRequestParamsWithAggregates() {
+        val calls = mutableListOf<String>()
+        val transport = object : MockHttpTransport() {
+            override fun buildRequest(method: String, url: String): LowLevelHttpRequest {
+                calls.add("$method:$url")
+                return MockLowLevelHttpRequest()
+                        .setResponse(MockLowLevelHttpResponse()
+                                .setStatusCode(HttpStatusCodes.STATUS_CODE_SERVER_ERROR)
+                                .setContent("")
+                        )
+            }
+        }
+
+        val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+            it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        })
+
+        store.getAllEvents(GetAllEventsRequest(Position(3), 5, ReadDirection.FORWARD, listOf("Type1", "Type2")))
+
+        assertThat(calls, `is`(equalTo(listOf(
+                "GET:http://localhost:8080/v2/aggregates/\$all?fromPosition=3&maxCount=5&readDirection=FORWARD&aggregateTypes=Type1,Type2"
+        ))))
+    }
+
     @Test
     fun getAllEventsPassesAnotherParams() {
         val calls = mutableListOf<String>()

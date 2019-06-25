@@ -165,8 +165,13 @@ class HttpEventStore(private val endpoint: URL,
 
     override fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse {
         val all = URLEncoder.encode("\$all", "UTF-8")
+
+        val aggregateTypes = request.aggregateTypes.joinToString(separator = ",")
+
+        val aggregateTypesParam = if (aggregateTypes.isNotEmpty()) "&aggregateTypes=$aggregateTypes" else ""
+
         val url = endpoint.toString() + "/v2/aggregates/$all?fromPosition=${request.position?.value
-                        ?: 0}&maxCount=${request.maxCount}&readDirection=${request.readDirection.name}"
+                        ?: 0}&maxCount=${request.maxCount}&readDirection=${request.readDirection.name}$aggregateTypesParam"
         val req = requestFactory.buildGetRequest(GenericUrl(url))
                 .setConnectTimeout(timeout).setReadTimeout(timeout)
         req.throwExceptionOnExecuteError = false

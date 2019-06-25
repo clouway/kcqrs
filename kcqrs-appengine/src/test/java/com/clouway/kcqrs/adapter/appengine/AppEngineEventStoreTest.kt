@@ -340,6 +340,32 @@ class AppEngineEventStoreTest {
     }
 
     @Test
+    fun getAllEventsFilteredByAggregates() {
+        aggregateBase.saveEvents("Order",
+                listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 1::")
+        )
+
+        aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 2::")
+        )
+
+        aggregateBase.saveEvents("Shipment",
+                listOf(EventPayload("::kind 3::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 3::")
+        )
+
+        val response = aggregateBase.getAllEvents(GetAllEventsRequest(null, 5, ReadDirection.FORWARD, listOf("Order", "Invoice"))) as GetAllEventsResponse.Success
+
+        assertThat(response.events.size, `is`(equalTo(2)))
+        assertThat(response.events[0].aggregateId, `is`(equalTo("::aggregate 1::")))
+        assertThat(response.events[0].payload, `is`(equalTo(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::")))))
+        assertThat(response.events[1].aggregateId, `is`(equalTo("::aggregate 2::")))
+        assertThat(response.events[1].payload, `is`(equalTo(EventPayload("::kind 2::", 1L, "::user 1::", Binary("::data::")))))
+    }
+
+    @Test
     fun onlyMaxCountIsRetrieved() {
         aggregateBase.saveEvents("Invoice",
                 listOf(
@@ -382,10 +408,10 @@ class AppEngineEventStoreTest {
         ) as SaveEventsResponse.Success
 
         val saveResponse = aggregateBase.saveEvents("Invoice",
-                        listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
-                        saveOptions = SaveOptions(aggregateId = "::aggregate 2::")
-                ) as SaveEventsResponse.Success
-        
+                listOf(EventPayload("::kind 1::", 1L, "::user 1::", Binary("::data::"))),
+                saveOptions = SaveOptions(aggregateId = "::aggregate 2::")
+        ) as SaveEventsResponse.Success
+
         val response = aggregateBase.getAllEvents(GetAllEventsRequest(Position(saveResponse.sequenceIds[0] - 1), 3, ReadDirection.FORWARD)) as GetAllEventsResponse.Success
 
         assertThat(response.events.size, `is`(equalTo(1)))
