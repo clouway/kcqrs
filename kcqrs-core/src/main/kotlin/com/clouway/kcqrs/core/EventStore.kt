@@ -87,9 +87,12 @@ sealed class SaveEventsResponse {
     data class SnapshotRequired(val currentEvents: List<EventPayload>, val currentSnapshot: Snapshot? = null) : SaveEventsResponse()
 }
 
-
-
-data class GetAllEventsRequest(val position: Position?, val maxCount: Int, val readDirection: ReadDirection = ReadDirection.FORWARD)
+data class GetAllEventsRequest(
+        val position: Position? = Position(0),
+        val maxCount: Int = 100,
+        val readDirection: ReadDirection = ReadDirection.FORWARD,
+        val aggregateTypes: List<String> = listOf()
+)
 
 sealed class GetAllEventsResponse {
     data class Success(val events:List<IndexedEvent>, val readDirection: ReadDirection, val nextPosition: Position?) : GetAllEventsResponse()
