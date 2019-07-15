@@ -41,29 +41,5 @@ interface AggregateRoot {
      * @return
      */
     fun getExpectedVersion(): Long
-
-    /**
-     * Returns a SnapshotMapper that will be used in creation
-     * of Snapshots for the EventStore
-     */
-    fun getSnapshotMapper(): SnapshotMapper<AggregateRoot>
-
-    /**
-     * Builds an aggregate from snapshot data and the current version of the snapshot
-     */
-    fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T
 }
 
-
-interface SnapshotMapper<T : AggregateRoot> {
-
-    /**
-     * Serializes the current entity to a string snapshot
-     */
-    fun toSnapshot(data: T): Snapshot
-
-    /**
-     * Create an aggregate from given snapshot
-     */
-    fun fromSnapshot(snapshot: String, snapshotVersion: Long): T
-}

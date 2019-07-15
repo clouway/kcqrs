@@ -1,6 +1,5 @@
 package com.clouway.kcqrs.core
 
-import com.google.gson.Gson
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.ArrayList
@@ -19,30 +18,6 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
 
     override fun getId(): String? {
         return aggregateId
-    }
-
-    override fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T {
-        val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
-        val newInstance = this@AggregateRootBase::class.java.newInstance()
-        setFields(snapshotRootBase, newInstance)
-        newInstance.version = snapshotVersion
-        return newInstance as T
-    }
-
-    override fun getSnapshotMapper(): SnapshotMapper<AggregateRoot> {
-        //TODO(V.Mitov) Pass a serializer so that type adapters could be used
-        return object : SnapshotMapper<AggregateRoot> {
-            val gson = Gson()
-            override fun toSnapshot(data: AggregateRoot): Snapshot {
-                return Snapshot(data.getExpectedVersion(), Binary(gson.toJson(data)))
-            }
-
-            override fun fromSnapshot(snapshot: String, snapshotVersion: Long): AggregateRoot {
-                val agg = gson.fromJson(snapshot, this@AggregateRootBase::class.java)
-                agg.version = agg.version + snapshotVersion
-                return agg
-            }
-        }
     }
 
     override fun markChangesAsCommitted() {
@@ -110,29 +85,5 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
             changes.add(event)
         }
     }
-
-    private fun setFields(from: Any, to: Any) {
-        from.javaClass.declaredFields.forEach { field ->
-            try {
-                val fieldFrom = from.javaClass.getDeclaredField(field.name)
-                fieldFrom.isAccessible = true
-                val value = fieldFrom.get(from)
-                val declaredField = to.javaClass.getDeclaredField(field.name)
-                declaredField.isAccessible = true
-                declaredField.set(to, value)
-            } catch (e: IllegalAccessException) {
-                throw IllegalStateException(e)
-            } catch (e: NoSuchFieldException) {
-                throw IllegalStateException(e)
-            }
-        }
-
-        //Grabbing the aggregateId from the superClass
-        val aggregateIdFieldFrom = from.javaClass.superclass.getDeclaredField("aggregateId")
-        aggregateIdFieldFrom.isAccessible = true
-        val value = aggregateIdFieldFrom.get(from)
-        val declaredField = to.javaClass.superclass.getDeclaredField("aggregateId")
-        declaredField.isAccessible = true
-        declaredField.set(to, value)
-    }
 }
+
