@@ -13,7 +13,7 @@ import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import java.util.*
+import java.util.UUID
 
 
 /**
@@ -485,12 +485,14 @@ class AppEngineEventStoreTest {
     fun saveEventsAfterSnapshotChange() {
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 1, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData::"))))
         )
+
+        val success = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as  GetEventsResponse.Success
 
         val saveEvents = aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
-                SaveOptions("::aggregateId::", 1)
+                SaveOptions("::aggregateId::", success.aggregates[0].version)
         ) as SaveEventsResponse.Success
 
         val response = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice")
@@ -502,7 +504,7 @@ class AppEngineEventStoreTest {
                                         saveEvents.aggregateId,
                                         "Invoice",
                                         Snapshot(1, Binary("::snapshotData::")),
-                                        2,
+                                        3,
                                         listOf(
                                                 EventPayload("::kind::", 1L, "::user 1::", Binary("::data::")),
                                                 EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))
@@ -518,14 +520,29 @@ class AppEngineEventStoreTest {
 
     @Test
     fun saveManySnapshots() {
+        // save event for first time
         aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(false))
         )
+
+
+        //fetch the current aggregate value and provide the current version
+        val noSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
+        val noSnapshotVersion = noSnapshotResponse.aggregates[0].version
+
+       aggregateBase.saveEvents("Invoice",
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId::", noSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(noSnapshotVersion, Binary("::snapshotData::"))))
+        )
+        
+        //fetch the current aggregate value and provide the current version
+        val firstSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
+        val firstSnapshotVersion = firstSnapshotResponse.aggregates[0].version
 
         val response = aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData2::"))))
+                SaveOptions("::aggregateId::", firstSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(firstSnapshotVersion, Binary("::snapshotData2::"))))
         ) as SaveEventsResponse.Success
 
         val success = aggregateBase.getEvents("::aggregateId::", "Invoice")
@@ -537,8 +554,8 @@ class AppEngineEventStoreTest {
                                 listOf(Aggregate(
                                         response.aggregateId,
                                         "Invoice",
-                                        Snapshot(1, Binary("::snapshotData2::")),
-                                        1,
+                                        Snapshot(2, Binary("::snapshotData2::")),
+                                        3,
                                         listOf(
                                                 EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))
                                         )

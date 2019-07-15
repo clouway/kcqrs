@@ -1,6 +1,7 @@
 package com.clouway.kcqrs.core
 
-import java.util.*
+import java.util.Arrays
+import java.util.UUID
 
 /**
  * EventStore is an abstraction of the persistence layer of the EventStore.

@@ -4,8 +4,6 @@ package com.clouway.kcqrs.core
 import com.clouway.kcqrs.testing.InMemoryEventPublisher
 import com.clouway.kcqrs.testing.InMemoryEventStore
 import com.clouway.kcqrs.testing.TestMessageFormat
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.equalTo
 import org.junit.Assert.assertThat
@@ -195,20 +193,28 @@ class SimpleAggregateRepositoryTest {
 
     @Test
     fun reachingPersistenceLimitForEventsWillCreateSnapshotAndNewEventEntity() {
-        var testClass = TestClass("::id::", "::string::", 1, TestObject("::value::"), listOf(TestObject("::value2::")))
+        var aggregate = TestAggreagate("::id::", "::string::", 1, TestObject("::value::"), listOf(TestObject("::value2::")))
 
         val eventPublisher = InMemoryEventPublisher()
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), eventPublisher, configuration)
-        eventRepository.save(testClass, anyIdentity)
+        val eventStore = InMemoryEventStore(1)
+        val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), eventPublisher, configuration)
+        eventRepository.save(aggregate, anyIdentity)
 
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
 
-        testClass.changeLong(123)
-        eventRepository.save(testClass, anyIdentity)
+        assertThat(eventStore.saveEventOptions.last.version, `is`(0L))
 
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        assertThat(testClass.long, equalTo(123L))
+        aggregate.changeLong(123)
+        eventRepository.save(aggregate, anyIdentity)
+
+        assertThat(eventStore.saveEventOptions.last.version, `is`(1L))
+        assertThat(eventStore.saveEventOptions.last.createSnapshot.snapshot!!.version, `is`(1L))
+
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+
+        assertThat(aggregate.getExpectedVersion(), `is`(2L)) // after the last event
+        assertThat(aggregate.long, equalTo(123L))
     }
 
     @Test
@@ -216,32 +222,32 @@ class SimpleAggregateRepositoryTest {
         val eventPublisher = InMemoryEventPublisher()
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), eventPublisher, configuration)
 
-        var testClass = TestClass("::id::", "::string::", 1, TestObject("::value::", Foo("bar")), listOf(TestObject("::value2::", Foo("baar"))))
+        var aggregate = TestAggreagate("::id::", "::string::", 1, TestObject("::value::", Foo("bar")), listOf(TestObject("::value2::", Foo("baar"))))
 
-        eventRepository.save(testClass, anyIdentity)
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        eventRepository.save(aggregate, anyIdentity)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        testClass.changeLong(123)
-        eventRepository.save(testClass, anyIdentity)
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        aggregate.changeLong(123)
+        eventRepository.save(aggregate, anyIdentity)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        testClass.changeString("newString")
-        eventRepository.save(testClass, anyIdentity)
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        aggregate.changeString("newString")
+        eventRepository.save(aggregate, anyIdentity)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        testClass.changeObject(TestObject("otherValue", Foo("FooBar")))
-        eventRepository.save(testClass, anyIdentity)
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        aggregate.changeObject(TestObject("otherValue", Foo("FooBar")))
+        eventRepository.save(aggregate, anyIdentity)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        testClass.changeList(listOf(TestObject("otherValueInList", Foo("BarFoo"))))
-        eventRepository.save(testClass, anyIdentity)
+        aggregate.changeList(listOf(TestObject("otherValueInList", Foo("BarFoo"))))
+        eventRepository.save(aggregate, anyIdentity)
 
-        testClass = eventRepository.getById(testClass.getId()!!, TestClass::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
 
-        assertThat(testClass.long, equalTo(123L))
-        assertThat(testClass.string, equalTo("newString"))
-        assertThat(testClass.testObject, equalTo(TestObject("otherValue", Foo("FooBar"))))
-        assertThat(testClass.list[0], equalTo(TestObject("otherValueInList", Foo("BarFoo"))))
+        assertThat(aggregate.long, equalTo(123L))
+        assertThat(aggregate.string, equalTo("newString"))
+        assertThat(aggregate.testObject, equalTo(TestObject("otherValue", Foo("FooBar"))))
+        assertThat(aggregate.list[0], equalTo(TestObject("otherValueInList", Foo("BarFoo"))))
     }
 
     @Test
@@ -293,45 +299,8 @@ class SimpleAggregateRepositoryTest {
 
 }
 
-class TestClassSnapshotMapper : SnapshotMapper<TestClass> {
-    private val gson = Gson()
-
-    override fun toSnapshot(data: TestClass): Snapshot {
-        val mapped = mapOf(
-                "id" to data.getId()!!,
-                "string" to data.string,
-                "long" to data.long,
-                "testObject" to mapOf("value" to data.testObject.value, "innerClass" to mapOf("bar" to data.testObject.innerClass.bar)),
-                "list" to listOf(data.list.map { "value" to it.value }.toMap())
-        )
-        return Snapshot(0, Binary(gson.toJson(mapped)))
-    }
-
-    override fun fromSnapshot(snapshot: String, snapshotVersion: Long): TestClass {
-        val jsonMap = gson.fromJson<Map<String, Any>>(snapshot, object : TypeToken<Map<String, Any>>() {}.type)
-        val list = jsonMap["list"] as List<Map<String, Any>>
-
-        return TestClass(
-                jsonMap["id"] as String,
-                jsonMap["string"] as String,
-                (jsonMap["long"] as Double).toLong(),
-                adaptTestObject(jsonMap["testObject"] as? Map<String, Any> ?: mapOf()),
-                list.map { adaptTestObject(it) })
-    }
-
-    private fun adaptTestObject(jsonMap: Map<String, Any>): TestObject {
-        val innerClass = jsonMap["innerClass"] as? Map<*, *> ?: mapOf<String, Any>()
-        val foo = Foo(innerClass["bar"] as String? ?: "")
-        return TestObject(jsonMap["value"]!! as String, foo)
-    }
-}
-
-data class TestClass private constructor(var string: String, var long: Long, var testObject: TestObject, var list: List<TestObject>) : AggregateRootBase() {
+data class TestAggreagate private constructor(var string: String, var long: Long, var testObject: TestObject, var list: List<TestObject>) : AggregateRootBase() {
     constructor() : this("", 0, TestObject(), listOf())
-
-    override fun getSnapshotMapper(): SnapshotMapper<AggregateRoot> {
-        return TestClassSnapshotMapper() as SnapshotMapper<AggregateRoot>
-    }
 
     constructor(id: String, string: String, long: Long, testObject: TestObject, list: List<TestObject>) : this(string, long, testObject, list) {
         applyChange(TestClassCreatedEvent(id, string, long, testObject, list))
