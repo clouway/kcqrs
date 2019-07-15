@@ -2,18 +2,7 @@ package com.clouway.kcqrs.adapter.appengine
 
 import com.clouway.kcqrs.core.*
 import com.clouway.kcqrs.core.messages.MessageFormat
-import com.google.appengine.api.datastore.Blob
-import com.google.appengine.api.datastore.DatastoreServiceFactory
-import com.google.appengine.api.datastore.Entity
-import com.google.appengine.api.datastore.EntityNotFoundException
-import com.google.appengine.api.datastore.EntityTranslator
-import com.google.appengine.api.datastore.FetchOptions
-import com.google.appengine.api.datastore.Key
-import com.google.appengine.api.datastore.KeyFactory
-import com.google.appengine.api.datastore.Query
-import com.google.appengine.api.datastore.Text
-import com.google.appengine.api.datastore.Transaction
-import com.google.appengine.api.datastore.TransactionOptions
+import com.google.appengine.api.datastore.*
 import java.io.ByteArrayInputStream
 
 /**
@@ -104,7 +93,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             } catch (ex: EntityNotFoundException) {
                 val entity = Entity(aggregateKey)
                 entity.setUnindexedProperty(eventsProperty, mutableListOf<String>())
-                entity.setUnindexedProperty(versionProperty, 0L)
+                entity.setUnindexedProperty(versionProperty, saveOptions.createSnapshot.snapshot?.version ?: 0L)
                 entity.setProperty(aggregateTypeProperty, aggregateType)
 
                 entity

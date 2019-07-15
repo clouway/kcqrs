@@ -11,10 +11,9 @@ import java.util.ArrayList
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-abstract class AggregateRootBase private constructor(@JvmField protected var aggregateId: String? = "") : AggregateRoot {
+abstract class AggregateRootBase private constructor(@JvmField protected var aggregateId: String? = "", @JvmField protected var version:Long  = 0L) : AggregateRoot {
 
     private var changes: ArrayList<Any> = ArrayList()
-    private var version = 0L
 
     constructor() : this(null)
 
@@ -23,9 +22,10 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
     }
 
     override fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T {
-        val fromSnapshot = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
+        val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
         val newInstance = this@AggregateRootBase::class.java.newInstance()
-        setFields(fromSnapshot, newInstance)
+        setFields(snapshotRootBase, newInstance)
+        newInstance.version = snapshotVersion
         return newInstance as T
     }
 
@@ -34,11 +34,13 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return object : SnapshotMapper<AggregateRoot> {
             val gson = Gson()
             override fun toSnapshot(data: AggregateRoot): Snapshot {
-                return Snapshot(0, Binary(gson.toJson(data)))
+                return Snapshot(data.getExpectedVersion(), Binary(gson.toJson(data)))
             }
 
             override fun fromSnapshot(snapshot: String, snapshotVersion: Long): AggregateRoot {
-                return gson.fromJson(snapshot, this@AggregateRootBase::class.java)
+                val agg = gson.fromJson(snapshot, this@AggregateRootBase::class.java)
+                agg.version = agg.version + snapshotVersion
+                return agg
             }
         }
     }

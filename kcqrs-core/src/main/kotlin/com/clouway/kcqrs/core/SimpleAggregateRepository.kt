@@ -53,7 +53,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 val createSnapshotResponse = eventStore.saveEvents(
                         aggregateClass.simpleName,
                         events,
-                        SaveOptions(aggregate.getId()!!, 0, configuration.topicName(aggregate), CreateSnapshot(true, newSnapshot)))
+                        SaveOptions(aggregate.getId()!!, newSnapshot.version, configuration.topicName(aggregate), CreateSnapshot(true, newSnapshot)))
 
                 when (createSnapshotResponse) {
                     is SaveEventsResponse.Success -> {

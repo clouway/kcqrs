@@ -1,17 +1,6 @@
 package com.clouway.kcqrs.testing
 
-import com.clouway.kcqrs.core.Aggregate
-import com.clouway.kcqrs.core.EventPayload
-import com.clouway.kcqrs.core.EventStore
-import com.clouway.kcqrs.core.GetAllEventsRequest
-import com.clouway.kcqrs.core.GetAllEventsResponse
-import com.clouway.kcqrs.core.GetEventsResponse
-import com.clouway.kcqrs.core.IndexedEvent
-import com.clouway.kcqrs.core.Position
-import com.clouway.kcqrs.core.RevertEventsResponse
-import com.clouway.kcqrs.core.SaveEventsResponse
-import com.clouway.kcqrs.core.SaveOptions
-import com.clouway.kcqrs.core.Snapshot
+import com.clouway.kcqrs.core.*
 import java.util.LinkedList
 
 /**
@@ -21,9 +10,12 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
 
     private val idToAggregate = mutableMapOf<String, StoredAggregate>()
     private val stubbedResponses = LinkedList<SaveEventsResponse>()
+    public val saveEventOptions = LinkedList<SaveOptions>()
 
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
         val aggregateKey = aggregateKey(aggregateType, saveOptions.aggregateId)
+
+        saveEventOptions.add(saveOptions)
 
         if (stubbedResponses.size > 0) {
             return stubbedResponses.pop()
@@ -47,7 +39,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
         aggregate.events.addAll(events)
         idToAggregate[aggregateKey] = aggregate
 
-        return SaveEventsResponse.Success(saveOptions.aggregateId, aggregate.events.size.toLong(),(0..events.size).map { it.toLong() } )
+        return SaveEventsResponse.Success(saveOptions.aggregateId, aggregate.events.size.toLong() + (aggregate.snapshot?.version ?: 0L),(0..events.size).map { it.toLong() } )
     }
 
     override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
@@ -62,7 +54,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
                 aggregateId,
                 aggregate.aggregateType,
                 aggregate.snapshot,
-                aggregate.events.size.toLong(),
+                aggregate.events.size.toLong() + (aggregate.snapshot?.version ?: 0L),
                 aggregate.events)
         ))
     }
@@ -74,7 +66,7 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
                     it,
                     aggregate.aggregateType,
                     aggregate.snapshot,
-                    aggregate.events.size.toLong(),
+                    aggregate.events.size.toLong() + (aggregate.snapshot?.version ?: 0L),
                     aggregate.events
             )
         }
