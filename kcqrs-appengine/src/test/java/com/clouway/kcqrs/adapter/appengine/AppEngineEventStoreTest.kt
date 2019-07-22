@@ -593,5 +593,58 @@ class AppEngineEventStoreTest {
             else -> fail("got unknown response when fetching stored events")
         }
     }
+
+    @Test
+    fun getEventsForASpecificIndex() {
+        // save event for first time
+        aggregateBase.saveEvents("Invoice",
+            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+            SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(false))
+        )
+
+
+        //fetch the current aggregate value and provide the current version
+        val noSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
+        val noSnapshotVersion = noSnapshotResponse.aggregates[0].version
+
+        aggregateBase.saveEvents("Invoice",
+            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))),
+            SaveOptions("::aggregateId::", noSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(noSnapshotVersion, Binary("::snapshotData::"))))
+        )
+
+        //fetch the current aggregate value and provide the current version
+        val firstSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
+        val firstSnapshotVersion = firstSnapshotResponse.aggregates[0].version
+
+        val response = aggregateBase.saveEvents("Invoice",
+            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
+            SaveOptions("::aggregateId::", firstSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(firstSnapshotVersion, Binary("::snapshotData2::"))))
+        ) as SaveEventsResponse.Success
+
+        val success = aggregateBase.getEvents("::aggregateId::", "Invoice", 1)
+
+        val test = success as GetEventsResponse.Success
+        println(test.aggregates[0].events.size)
+
+        when (success) {
+            is GetEventsResponse.Success -> {
+                assertThat(success, `is`(equalTo((
+                    GetEventsResponse.Success(
+                        listOf(Aggregate(
+                            response.aggregateId,
+                            "Invoice",
+                            null,
+                            2,
+                            listOf(
+                                EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))
+                            )
+                        ))
+                    )
+                    ))))
+
+            }
+            else -> fail("got unknown response when fetching stored events")
+        }
+    }
 }
 

@@ -25,7 +25,7 @@ interface EventStore {
      * @param aggregateId the ID of the aggregate which events should be retrieved
      * @return a response of events
      */
-    fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse
+    fun getEvents(aggregateId: String, aggregateType: String, index: Long? = null): GetEventsResponse
 
     /**
      * Retrieves the events that are saved for the stored aggregates.
