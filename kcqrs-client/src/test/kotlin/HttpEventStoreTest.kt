@@ -1,5 +1,6 @@
 import com.clouway.kcqrs.client.HttpEventStore
 import com.clouway.kcqrs.core.*
+import com.google.api.client.http.HttpRequest
 import com.google.api.client.http.HttpStatusCodes
 import com.google.api.client.http.LowLevelHttpRequest
 import com.google.api.client.http.LowLevelHttpResponse
@@ -13,12 +14,13 @@ import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.hasItems
 import org.jmock.integration.junit4.JUnitRuleMockery
 import org.junit.Assert.assertThat
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URL
-import java.util.*
+import java.util.UUID
 
 
 /**
@@ -231,6 +233,55 @@ class HttpEventStoreTest {
                                 EventPayload("::kind 3::", 3L, "::user::", Binary("::event data::"))
                         )
                 )))
+    }
+
+    @Test
+    fun retrieveAggregateForSpecificIndexWithMultipleEvents() {
+      val aggregateId = randomAggregateId()
+
+      val responsePayload = """
+              {"aggregates": [
+                    {
+                      "aggregateId": "$aggregateId",
+                      "aggregateType": "Invoice",
+                      "version": 4,
+                      "events": [
+                          {"kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"},
+                          {"kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"},
+                          {"kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
+                      ]
+                    }
+                ]
+              }
+              """.trimIndent()
+
+      val transport = MockHttpTransport.Builder()
+          .setLowLevelHttpResponse(MockLowLevelHttpResponse()
+              .setStatusCode(HttpStatusCodes.STATUS_CODE_OK)
+              .setContent(responsePayload))
+          .build()
+
+      var request: HttpRequest? = null
+      val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+        it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+        request = it
+      })
+
+      val result = store.getEvents(aggregateId, "Invoice", 1) as GetEventsResponse.Success
+      assertThat(result.aggregates, hasItems(
+          Aggregate(
+              aggregateId,
+              "Invoice",
+              null,
+              4L,
+              listOf(
+                  EventPayload("::kind 1::", 1L, "::user::", Binary("::event data::")),
+                  EventPayload("::kind 2::", 2L, "::user::", Binary("::event data::")),
+                  EventPayload("::kind 3::", 3L, "::user::", Binary("::event data::"))
+              )
+          )))
+
+      assertTrue(request!!.url.toString().contains("&index=1"))
     }
 
     @Test

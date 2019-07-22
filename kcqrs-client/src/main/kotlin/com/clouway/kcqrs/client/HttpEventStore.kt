@@ -1,18 +1,6 @@
 package com.clouway.kcqrs.client
 
-import com.clouway.kcqrs.core.Aggregate
-import com.clouway.kcqrs.core.Binary
-import com.clouway.kcqrs.core.EventPayload
-import com.clouway.kcqrs.core.EventStore
-import com.clouway.kcqrs.core.GetAllEventsRequest
-import com.clouway.kcqrs.core.GetAllEventsResponse
-import com.clouway.kcqrs.core.GetEventsResponse
-import com.clouway.kcqrs.core.IndexedEvent
-import com.clouway.kcqrs.core.Position
-import com.clouway.kcqrs.core.RevertEventsResponse
-import com.clouway.kcqrs.core.SaveEventsResponse
-import com.clouway.kcqrs.core.SaveOptions
-import com.clouway.kcqrs.core.Snapshot
+import com.clouway.kcqrs.core.*
 import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpRequestFactory
 import com.google.api.client.http.HttpStatusCodes
@@ -23,7 +11,7 @@ import com.google.api.client.util.Key
 import java.io.IOException
 import java.net.URL
 import java.net.URLEncoder
-import java.util.*
+import java.util.Arrays
 
 /**
  * HttpEventStore is an implementation of EventStore which uses REST api for storing and retrieving of events.
@@ -124,8 +112,14 @@ class HttpEventStore(private val endpoint: URL,
         }
     }
 
-    override fun getEvents(aggregateId: String, aggregateType: String): GetEventsResponse {
-        val request = requestFactory.buildGetRequest(GenericUrl(endpoint.toString() + "/v2/aggregates/$aggregateId?aggregateType=$aggregateType"))
+    override fun getEvents(aggregateId: String, aggregateType: String, index: Long?): GetEventsResponse {
+        val params = if (index == null) {
+          "?aggregateType=$aggregateType"
+        } else {
+          "?aggregateType=$aggregateType&index=$index"
+        }
+
+        val request = requestFactory.buildGetRequest(GenericUrl("$endpoint/v2/aggregates/$aggregateId$params"))
                 .setConnectTimeout(timeout).setReadTimeout(timeout)
         request.throwExceptionOnExecuteError = false
         try {
