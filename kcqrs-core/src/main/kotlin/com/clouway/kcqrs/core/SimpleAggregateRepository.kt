@@ -49,7 +49,8 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             is SaveEventsResponse.SnapshotRequired -> {
                 val currentAggregate = buildAggregateFromHistory(aggregateClass, response.currentEvents, aggregate.getId()!!, response.currentSnapshot)
 
-                val newSnapshot = currentAggregate.getSnapshotMapper().toSnapshot(currentAggregate)
+                val newSnapshot = Snapshot(currentAggregate.getExpectedVersion(), Binary(messageFormat.formatToString(currentAggregate)))
+
                 val createSnapshotResponse = eventStore.saveEvents(
                         aggregateClass.simpleName,
                         events,
@@ -127,7 +128,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         try {
             aggregate = type.newInstance()
             if (snapshot != null) {
-                aggregate = aggregate.fromSnapshot(String(snapshot.data.payload), snapshot.version) as T
+                aggregate = messageFormat.parse(String(snapshot.data.payload), type)
             }
         } catch (e: InstantiationException) {
             throw HydrationException(id, "target type: '${type.name}' cannot be instantiated")

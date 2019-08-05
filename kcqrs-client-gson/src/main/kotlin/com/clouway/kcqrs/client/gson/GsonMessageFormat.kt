@@ -24,6 +24,10 @@ internal class GsonMessageFormat : MessageFormat {
         return gson.fromJson<T>(InputStreamReader(stream, Charsets.UTF_8), type)
     }
 
+    override fun <T> parse(json: String, type: Class<T>): T {
+        return gson.fromJson<T>(json, type)
+    }
+
     override fun formatToString(value: Any): String {
         return gson.toJson(value)
     }

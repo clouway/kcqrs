@@ -14,6 +14,10 @@ import java.lang.reflect.Type
 
 class TestMessageFormat : MessageFormat {
 
+    override fun <T> parse(json: String, type: Class<T>): T {
+        return gson.fromJson<T>(json, type)
+    }
+
     private val gson = Gson()
     override fun <T> parse(stream: InputStream, type: Type): T {
         return gson.fromJson(InputStreamReader(stream, Charsets.UTF_8), type)
