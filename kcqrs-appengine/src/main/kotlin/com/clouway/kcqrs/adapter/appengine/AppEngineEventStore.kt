@@ -142,7 +142,7 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
                 if (snapshotEntity != null) {
                     val blobData = snapshotEntity.getProperty("data") as Blob
                     snapshot = Snapshot(
-                            snapshotEntity.getProperty("aggregateIndex") as Long? ?: 0,
+                            snapshotEntity.getProperty("version") as Long? ?: 0,
                             Binary(blobData.bytes))
                 }
                 aggregateEvents.removeAll(eventsAsText)
