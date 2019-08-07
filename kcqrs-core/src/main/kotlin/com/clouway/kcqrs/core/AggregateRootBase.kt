@@ -21,7 +21,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return aggregateId
     }
 
-    override fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T {
+    final override fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T {
         val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
         val newInstance = this@AggregateRootBase::class.java.newInstance()
         setFields(snapshotRootBase, newInstance)
@@ -38,9 +38,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
             }
 
             override fun fromSnapshot(snapshot: String, snapshotVersion: Long): AggregateRoot {
-                val agg = gson.fromJson(snapshot, this@AggregateRootBase::class.java)
-                agg.version = agg.version + snapshotVersion
-                return agg
+                return gson.fromJson(snapshot, this@AggregateRootBase::class.java)
             }
         }
     }

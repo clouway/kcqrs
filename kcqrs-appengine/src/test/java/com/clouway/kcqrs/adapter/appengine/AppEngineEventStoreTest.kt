@@ -464,15 +464,20 @@ class AppEngineEventStoreTest {
     @Test
     fun onEventLimitReachSnapshotIsReturned() {
         aggregateBase.saveEvents("Invoice",
+            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data0::"))),
+            SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+        )
+
+        aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+                SaveOptions("::aggregateId::", 1, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData::"))))
         )
 
         val tooBigStringData = "aaaaaaaa".repeat(150000)
 
         val eventLimitReachedResponse = aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary(tooBigStringData))),
-                SaveOptions("::aggregateId::", 1)
+                SaveOptions("::aggregateId::", 2)
         ) as SaveEventsResponse.SnapshotRequired
 
         assertThat(eventLimitReachedResponse.currentEvents, `is`(equalTo(listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))))))
