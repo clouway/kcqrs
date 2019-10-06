@@ -5,4 +5,8 @@ package com.clouway.kcqrs.adapter.appengine
  * 
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-internal data class AggregateLookupKey(val aggregateType: String, val aggregateId: String, val aggregateIndex: Long)
+internal data class AggregateLookupKey(
+        val aggregateType: String,
+        val aggregateId: String,
+        val aggregateIndex: Long
+)

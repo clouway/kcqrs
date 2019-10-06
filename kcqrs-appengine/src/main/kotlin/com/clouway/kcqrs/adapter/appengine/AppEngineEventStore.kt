@@ -1,19 +1,42 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.Aggregate
+import com.clouway.kcqrs.core.Binary
+import com.clouway.kcqrs.core.EventPayload
+import com.clouway.kcqrs.core.EventStore
+import com.clouway.kcqrs.core.GetAllEventsRequest
+import com.clouway.kcqrs.core.GetAllEventsResponse
+import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.IdGenerator
+import com.clouway.kcqrs.core.IndexedEvent
+import com.clouway.kcqrs.core.Position
+import com.clouway.kcqrs.core.ReadDirection
+import com.clouway.kcqrs.core.RevertEventsResponse
+import com.clouway.kcqrs.core.SaveEventsResponse
+import com.clouway.kcqrs.core.SaveOptions
+import com.clouway.kcqrs.core.Snapshot
 import com.clouway.kcqrs.core.messages.MessageFormat
-import com.google.appengine.api.datastore.*
+import com.google.cloud.datastore.Blob
+import com.google.cloud.datastore.Datastore
+import com.google.cloud.datastore.Entity
+import com.google.cloud.datastore.Key
+import com.google.cloud.datastore.ListValue
+import com.google.cloud.datastore.LongValue
+import com.google.cloud.datastore.StringValue
+import com.google.cloud.datastore.StructuredQuery
+import com.google.cloud.datastore.Transaction
+import com.google.cloud.datastore.Value
 import java.io.ByteArrayInputStream
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat, private val idGenerator: IdGenerator) : EventStore {
-
-    /**
-     * Entity Kind used for storing of snapshots.
-     */
-    private val snapshotKind = kind + "Snapshot"
+class AppEngineEventStore(
+        private val keyQueryFactory: KeyQueryFactory,
+        private val datastore: Datastore,
+        private val messageFormat: MessageFormat,
+        private val idGenerator: IdGenerator
+) : EventStore {
 
     /**
      * Property name for the aggregate id.
@@ -46,62 +69,68 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
     private val versionProperty = "v"
 
     /**
-     * Entity Kind used for storing of event index: [aggregateId, aggregateType, sequence number, version]
+     * Indexed Event Transform
      */
-    private val indexKind = kind + "Index"
+    private val indexedEventTransform: (Entity) -> IndexedEventKey = {
+        val aggregateType = it.getString(aggregateTypeProperty)
+        val aggregateId = it.getString(aggregateIdProperty)
+        val aggregateIndex = it.getLong(aggregateIndexProperty)
+        val version = it.getLong(versionProperty)
+        val sequenceId = it.getLong(sequenceProperty)
+
+        IndexedEventKey(sequenceId, aggregateId, aggregateType, aggregateIndex, version)
+    }
 
     override fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions): SaveEventsResponse {
         val aggregateId = saveOptions.aggregateId
         var transaction: Transaction? = null
 
         try {
-            val dataStore = DatastoreServiceFactory.getDatastoreService()
-            transaction = dataStore.beginTransaction(TransactionOptions.Builder.withXG(true))
+            transaction = datastore.newTransaction()
 
-            val snapshotKey = snapshotKey(aggregateId, aggregateType)
-            var snapshotEntity: Entity?
+            val snapshotKey = keyQueryFactory.createSnapshotKey(aggregateType, aggregateId)
 
-            snapshotEntity = try {
-                dataStore.get(transaction, snapshotKey)
-            } catch (ex: EntityNotFoundException) {
-                null
-            }
+            var snapshotEntity = transaction.get(snapshotKey)
 
-            var aggregateIndex = if (snapshotEntity != null) snapshotEntity.getProperty("aggregateIndex") as Long else 0
+            var aggregateIndex = snapshotEntity?.getLong("aggregateIndex") ?: 0
 
             if (saveOptions.createSnapshot.required && saveOptions.createSnapshot.snapshot != null) {
-
-                if (snapshotEntity == null) {
-                    snapshotEntity = Entity(snapshotKind, snapshotKey.name)
-                }
-
                 aggregateIndex += 1
                 val snapshotData = saveOptions.createSnapshot.snapshot!!.data
-                snapshotEntity.setUnindexedProperty("version", saveOptions.createSnapshot.snapshot!!.version)
-                snapshotEntity.setUnindexedProperty("data", Blob(snapshotData.payload))
-                snapshotEntity.setUnindexedProperty("aggregateIndex", aggregateIndex)
+
+                snapshotEntity = Entity.newBuilder(keyQueryFactory.createSnapshotKey(aggregateType, aggregateId))
+                        .set("version", saveOptions.createSnapshot.snapshot!!.version)
+                        .set("data", Blob.copyFrom(snapshotData.payload))
+                        .set(aggregateIdProperty, StringValue.newBuilder(aggregateId).setExcludeFromIndexes(true).build())
+                        .set("aggregateIndex", LongValue
+                                .newBuilder(aggregateIndex)
+                                .setExcludeFromIndexes(true)
+                                .build()
+                        )
+                        .build()
             }
 
             /*
              * Keys of aggregates are dispatched on different levels by using an index for scalling purposes.
              * Each aggregate in the datastore has single or multiple levels.
              */
-            val aggregateKey = aggregateKey(aggregateType, aggregateId, aggregateIndex)
+            val aggregateKey = keyQueryFactory.createAggregateKey(aggregateType, aggregateId, aggregateIndex)
 
-            val aggregateEntity = try {
-                dataStore.get(transaction, aggregateKey)
-            } catch (ex: EntityNotFoundException) {
-                val entity = Entity(aggregateKey)
-                entity.setUnindexedProperty(eventsProperty, mutableListOf<String>())
-                entity.setUnindexedProperty(versionProperty, saveOptions.createSnapshot.snapshot?.version ?: 0L)
-                entity.setProperty(aggregateTypeProperty, aggregateType)
-
-                entity
-            }
+            val aggregateEntity =
+                    transaction.get(aggregateKey) ?: Entity.newBuilder(aggregateKey)
+                            .set(eventsProperty, ListValue.newBuilder().setExcludeFromIndexes(true).build())
+                            .set(versionProperty, LongValue
+                                    .newBuilder(saveOptions.createSnapshot.snapshot?.version ?: 0L)
+                                    .setExcludeFromIndexes(true)
+                                    .build()
+                            )
+                            .set(aggregateTypeProperty, aggregateType)
+                            .set(aggregateIdProperty, aggregateId)
+                            .build()
 
             @Suppress("UNCHECKED_CAST")
-            val aggregateEvents = getTextList(aggregateEntity.getProperty(eventsProperty))
-            val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
+            val aggregateEvents = getTextList(aggregateEntity.getList(eventsProperty))
+            val currentVersion = aggregateEntity.getLong(versionProperty)
 
             /**
              *  If the current version is different than what was hydrated during the state change then we know we
@@ -115,49 +144,60 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             val eventsModel = events.mapIndexed { index, it -> EventModel(it.kind, currentVersion + index + 1, it.identityId, it.timestamp, it.data.payload.toString(Charsets.UTF_8)) }
 
             val sequenceIds = (1..eventsModel.size).map { idGenerator.nextId() }
+
             val eventIndexes = eventsModel.mapIndexed { index, eventModel ->
                 val sequenceId = sequenceIds[index]
-                val eventIndex = Entity(indexKind, eventModel.version, aggregateKey)
-                eventIndex.setUnindexedProperty(aggregateIdProperty, aggregateId)
-                eventIndex.setIndexedProperty(aggregateTypeProperty, aggregateType)
-                eventIndex.setUnindexedProperty(aggregateIndexProperty, aggregateIndex)
-                eventIndex.setUnindexedProperty(versionProperty, eventModel.version)
-                eventIndex.setIndexedProperty(sequenceProperty, sequenceId)
-                eventIndex
-            }
 
-            val eventsAsText = eventsModel.map { Text(messageFormat.formatToString(it)) }
+                val indexKey = keyQueryFactory.createIndexKey(aggregateKey, eventModel)
+
+                val eventIndex = Entity.newBuilder(indexKey)
+                eventIndex.set(aggregateIdProperty, StringValue.newBuilder(aggregateId).setExcludeFromIndexes(true).build())
+                eventIndex.set(aggregateTypeProperty, aggregateType)
+                eventIndex.set(aggregateIndexProperty, LongValue.newBuilder(aggregateIndex).setExcludeFromIndexes(true).build())
+                eventIndex.set(versionProperty, LongValue.newBuilder(eventModel.version).setExcludeFromIndexes(true).build())
+                eventIndex.set(sequenceProperty, sequenceId)
+                eventIndex.build()
+            }.toTypedArray()
+
+            var sizeInBytes = 0
+            val eventsAsText = eventsModel.map {
+                val eventPayload = messageFormat.formatToString(it)
+                sizeInBytes += eventPayload.toByteArray().size
+                eventPayload
+            }
 
             aggregateEvents.addAll(eventsAsText)
 
-            aggregateEntity.setUnindexedProperty(eventsProperty, aggregateEvents)
-            aggregateEntity.setUnindexedProperty(versionProperty, currentVersion + events.size)
-
-            val protoEntity = EntityTranslator.convertToPb(aggregateEntity)
+            val newAggregateEntity = Entity.newBuilder(aggregateEntity)
+                    .set(eventsProperty, ListValue.of(aggregateEvents.map { StringValue.newBuilder(it).setExcludeFromIndexes(true).build() }))
+                    .set(versionProperty, LongValue.of(currentVersion + events.size))
+                    .build()
 
             //Current datastore entity size is 1,048,572 bytes
-            if (protoEntity.serializedSize >= 1048572) {
+            if (sizeInBytes >= 1048572) {
                 var snapshot: Snapshot? = null
                 //if a build snapshot does not exist it would not have the field data filled in.
                 if (snapshotEntity != null) {
-                    val blobData = snapshotEntity.getProperty("data") as Blob
+                    val blobData = snapshotEntity.getBlob("data")
                     snapshot = Snapshot(
-                            snapshotEntity.getProperty("version") as Long? ?: 0,
-                            Binary(blobData.bytes))
+                            snapshotEntity.getLong("version") as Long? ?: 0,
+                            Binary(blobData.toByteArray())
+                    )
                 }
                 aggregateEvents.removeAll(eventsAsText)
                 return SaveEventsResponse.SnapshotRequired(adaptEvents(aggregateEvents), snapshot)
             }
 
             if (snapshotEntity != null) {
-                dataStore.put(transaction, listOf(snapshotEntity, aggregateEntity) + eventIndexes)
+                transaction.put(snapshotEntity, newAggregateEntity, *eventIndexes)
             } else {
-                dataStore.put(transaction, listOf(aggregateEntity) + eventIndexes)
+                transaction.put(newAggregateEntity, *eventIndexes)
             }
 
             transaction.commit()
             return SaveEventsResponse.Success(aggregateId, currentVersion, sequenceIds)
         } catch (ex: Exception) {
+            ex.printStackTrace()
             return SaveEventsResponse.Error("could not save events due: ${ex.message}")
         } finally {
             if (transaction != null && transaction.isActive) {
@@ -168,37 +208,39 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
 
 
     override fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse {
-        val dataStore = DatastoreServiceFactory.getDatastoreService()
         val snapshotKeyToAggregateId = mutableMapOf<Key, String>()
         val snapshotKeys = aggregateIds.map {
-            val key = snapshotKey(it, aggregateType)
+            val key = keyQueryFactory.createSnapshotKey(aggregateType, it)
             snapshotKeyToAggregateId[key] = it
             key
         }
 
-        val snapshotEntities = try {
-            dataStore.get(snapshotKeys)
-        } catch (ex: EntityNotFoundException) {
-            mapOf<Key, Entity>()
-        }.toMutableMap()
+        val snapshotEntities = datastore.get(snapshotKeys).asSequence()
+                .map { it.key to it }
+                .toMap()
+                .toMutableMap()
 
         if (snapshotEntities.size < aggregateIds.size) {
             aggregateIds.forEach {
-                val key = snapshotKey(it, aggregateType)
+                val key = keyQueryFactory.createSnapshotKey(it, aggregateType)
                 if (!snapshotEntities.containsKey(key)) {
-                    snapshotEntities[key] = Entity(snapshotKind, key.name)
+                    snapshotEntities[key] = Entity.newBuilder(key)
+                            .set("aggregateIndex", LongValue.newBuilder(0L).setExcludeFromIndexes(true).build())
+                            .set(aggregateIdProperty, it)
+                            .build()
                 }
             }
         }
 
         val keyToAggregateId = mutableMapOf<Key, String>()
         val aggregateKeys = snapshotEntities.values.map {
-            val key = aggregateKey(it.key.name, it.getProperty("aggregateIndex") as Long? ?: 0)
+            println(it)
+            val key = keyQueryFactory.createAggregateKey(aggregateType, it.getString(aggregateIdProperty), it.getLong("aggregateIndex"))
             keyToAggregateId[key] = it.key.name
             key
         }
 
-        val aggregateEntities = dataStore.get(aggregateKeys)
+        val aggregateEntities = datastore.get(aggregateKeys).asSequence().map { it.key to it }.toMap()
 
         val aggregates = mutableListOf<Aggregate>()
 
@@ -206,20 +248,21 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             val aggregateEntity = aggregateEntities[it]!!
             var snapshot: Snapshot? = null
 
-            val snapshotKey = KeyFactory.createKey(snapshotKind, keyToAggregateId[it]!!)
+            val snapshotKey = keyQueryFactory.createSnapshotKey(aggregateType, aggregateEntity.getString(aggregateIdProperty))
             if (snapshotEntities.containsKey(snapshotKey)) {
                 val thisSnapshot = snapshotEntities[snapshotKey]!!
-                val version = thisSnapshot.getProperty("aggregateIndex") as Long? ?: 0
-                if (thisSnapshot.hasProperty("data")) {
-                    val data = thisSnapshot.getProperty("data") as Blob
+                val version = thisSnapshot.getLong("aggregateIndex") as Long? ?: 0
+                if (thisSnapshot.contains("data")) {
+                    val data = thisSnapshot.getBlob("data")
                     snapshot = Snapshot(
                             version,
-                            Binary(data.bytes))
+                            Binary(data.toByteArray())
+                    )
                 }
             }
             val aggregateId = snapshotKeyToAggregateId[snapshotKey]!!
-            val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
-            val events = adaptEvents(getTextList(aggregateEntity.getProperty(eventsProperty)))
+            val currentVersion = aggregateEntity.getLong(versionProperty)
+            val events = adaptEvents(getTextList(aggregateEntity.getList(eventsProperty)))
 
             aggregates.add(Aggregate(aggregateId, aggregateType, snapshot, currentVersion, events))
         }
@@ -228,45 +271,38 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
     }
 
     override fun getEvents(aggregateId: String, aggregateType: String, index: Long?): GetEventsResponse {
-        val dataStore = DatastoreServiceFactory.getDatastoreService()
         var snapshot: Snapshot? = null
 
         val aggregateKey = if (index == null) {
-            val snapshotKey = snapshotKey(aggregateId, aggregateType)
+            val snapshotKey = keyQueryFactory.createSnapshotKey(aggregateType, aggregateId)
             val snapshotEntity: Entity?
 
-            snapshotEntity = try {
-                dataStore.get(snapshotKey)
-            } catch (ex: EntityNotFoundException) {
-                null
-            }
+            snapshotEntity = datastore.get(snapshotKey)
 
-            val aggregateIndex = snapshotEntity?.getProperty("aggregateIndex") as Long? ?: 0
-            val version = snapshotEntity?.getProperty("version") as Long? ?: 0
+            val aggregateIndex = snapshotEntity?.getLong("aggregateIndex") ?: 0
+            val version = snapshotEntity?.getLong("version") ?: 0
 
-            val snapshotData = snapshotEntity?.getProperty("data") as Blob?
+            val snapshotData = snapshotEntity?.getBlob("data")
             snapshot = if (snapshotData != null) {
-                Snapshot(version, Binary(snapshotData.bytes))
+                Snapshot(version, Binary(snapshotData.toByteArray()))
             } else null
 
-            aggregateKey(aggregateType, aggregateId, aggregateIndex)
+            keyQueryFactory.createAggregateKey(aggregateType, aggregateId, aggregateIndex)
         } else {
-            aggregateKey(aggregateType, aggregateId, index)
+            keyQueryFactory.createAggregateKey(aggregateType, aggregateId, index)
         }
 
-        val aggregate = try {
-            dataStore.get(aggregateKey)
-        } catch (ex: EntityNotFoundException) {
-            return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
-        }
+        val aggregate =
+                datastore.get(aggregateKey)
+                        ?: return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
 
         @Suppress("UNCHECKED_CAST")
-        val aggregateEvents = getTextList(aggregate.getProperty(eventsProperty))
-        val currentVersion = aggregate.getProperty(versionProperty) as Long
+        val aggregateEvents = getTextList(aggregate.getList(eventsProperty))
+        val currentVersion = aggregate.getLong(versionProperty)
 
         val events = aggregateEvents.map {
             messageFormat.parse<EventModel>(ByteArrayInputStream(
-                    it.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+                    it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
 
         }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
 
@@ -274,37 +310,38 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
     }
 
     override fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse {
-        val dataStore = DatastoreServiceFactory.getDatastoreService()
+
         val startSequenceId = request.position?.value ?: 0
 
         // Proper query needs to be send to the backend depending on the
         // read direction.
         val eventsFilterPredicate = if (request.readDirection == ReadDirection.FORWARD) {
-            Query.FilterPredicate(sequenceProperty, Query.FilterOperator.GREATER_THAN, startSequenceId)
+            StructuredQuery.PropertyFilter.gt(sequenceProperty, startSequenceId)
         } else {
-            Query.FilterPredicate(sequenceProperty, Query.FilterOperator.LESS_THAN, startSequenceId)
+            StructuredQuery.PropertyFilter.lt(sequenceProperty, startSequenceId)
         }
 
-        var filter: Query.Filter = eventsFilterPredicate
+        var eventKeys = mutableListOf<IndexedEventKey>()
+        val filters = mutableListOf<StructuredQuery.Filter>()
 
-
-        if (!request.aggregateTypes.isEmpty()) {
-            filter = Query.CompositeFilter(Query.CompositeFilterOperator.AND, listOf(
-                    eventsFilterPredicate, Query.FilterPredicate(aggregateTypeProperty, Query.FilterOperator.IN, request.aggregateTypes)
-            ))
+        if (request.aggregateTypes.isEmpty()) {
+            filters.add(eventsFilterPredicate)
         }
 
-        var eventKeys = dataStore.prepare(Query(indexKind).setFilter(filter))
-                .asIterable(FetchOptions.Builder.withLimit(request.maxCount))
-                .map {
-                    val aggregateType = it.getProperty(aggregateTypeProperty) as String
-                    val aggregateId = it.getProperty(aggregateIdProperty) as String
-                    val aggregateIndex = it.getProperty(aggregateIndexProperty) as Long
-                    val version = it.getProperty(versionProperty) as Long
-                    val sequenceId = it.getProperty(sequenceProperty) as Long
+        filters += request.aggregateTypes.map {
+            StructuredQuery.CompositeFilter.and(
+                    eventsFilterPredicate,
+                    StructuredQuery.PropertyFilter.eq(aggregateTypeProperty, it)
+            )
+        }
 
-                    IndexedEventKey(sequenceId, aggregateId, aggregateType, aggregateIndex, version)
-                }
+        //TODO(mgenov): use coroutines to make it async but it will break the GAE compatibility.
+        filters.forEach {
+            val query = keyQueryFactory.createIndexLookupQuery(it, request.maxCount)
+            val indexes = datastore.run(query).asSequence().map(indexedEventTransform).toList()
+            
+            eventKeys.addAll(indexes)
+        }
 
         // Backward direction requires events to be retrieved in reversed order.
         if (request.readDirection == ReadDirection.BACKWARD) {
@@ -315,22 +352,24 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
             AggregateLookupKey(it.aggregateType, it.aggregateId, it.aggregateIndex)
         }
 
-        val aggregateKeys = indexByAggregate.keys.map { aggregateKey(it.aggregateType, it.aggregateId, it.aggregateIndex) }
-        val aggregateEntities = dataStore.get(aggregateKeys)
+        val aggregateKeys = indexByAggregate.keys.map { keyQueryFactory.createAggregateKey(it.aggregateType, it.aggregateId, it.aggregateIndex) }
+
+        val aggregateEntities = datastore.get(aggregateKeys).asSequence().map { it.key to it }.toMap()
 
         val indexedEvents = mutableListOf<IndexedEvent>()
         var lastSequenceId = 0L
 
         indexByAggregate.keys.forEach {
-            val key = aggregateKey(it.aggregateType, it.aggregateId, it.aggregateIndex)
+            val key = keyQueryFactory.createAggregateKey(it.aggregateType, it.aggregateId, it.aggregateIndex)
+
             val aggregate = aggregateEntities[key]!!
             val eventVersions = indexByAggregate[it]!!
-            val aggregateEvents = getTextList(aggregate.getProperty(eventsProperty))
+            val aggregateEvents = getTextList(aggregate.getList(eventsProperty))
 
             eventVersions.forEach {
                 val datastorePayload = aggregateEvents[it.version.toInt() - 1]
                 val eventModel = messageFormat.parse<EventModel>(ByteArrayInputStream(
-                        datastorePayload.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+                        datastorePayload.toByteArray(Charsets.UTF_8)), EventModel::class.java)
 
                 val eventPayload = EventPayload(
                         eventModel.kind,
@@ -357,50 +396,44 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
 
         var transaction: Transaction? = null
         try {
-            val dataStore = DatastoreServiceFactory.getDatastoreService()
-            transaction = dataStore.beginTransaction(TransactionOptions.Builder.withXG(true))
+            transaction = datastore.newTransaction()
 
-            val snapshotKey = snapshotKey(aggregateId, aggregateType)
+            val snapshotKey = keyQueryFactory.createSnapshotKey(aggregateId, aggregateType)
 
-            try {
-                val snapshot: Entity? = try {
-                    dataStore.get(transaction, snapshotKey)
-                } catch (e: EntityNotFoundException) {
-                    null
-                }
-                val aggregateIndex: Long
+            val snapshot = transaction.get(snapshotKey)
 
-                aggregateIndex = if (snapshot != null) snapshot.getProperty("aggregateIndex") as Long else 0
+            val aggregateIndex: Long
 
-                val aggregateKey = aggregateKey(aggregateType, aggregateId, aggregateIndex)
+            aggregateIndex = snapshot?.getLong("aggregateIndex") ?: 0
 
-                val aggregateEntity = dataStore.get(transaction, aggregateKey)
+            val aggregateKey = keyQueryFactory.createAggregateKey(aggregateType, aggregateId, aggregateIndex)
 
-                @Suppress("UNCHECKED_CAST")
-                val aggregateEvents = getTextList(aggregateEntity.getProperty(eventsProperty))
-                val currentVersion = aggregateEntity.getProperty(versionProperty) as Long
+            val aggregateEntity = transaction.get(aggregateKey)
+                    ?: return RevertEventsResponse.AggregateNotFound(aggregateId, aggregateType)
 
-                if (count > aggregateEvents.size) {
-                    return RevertEventsResponse.ErrorNotEnoughEventsToRevert(aggregateEvents.size, count)
-                }
+            @Suppress("UNCHECKED_CAST")
+            val aggregateEvents = getTextList(aggregateEntity.getList(eventsProperty))
+            val currentVersion = aggregateEntity.getLong(versionProperty)
 
-                val lastEventIndex = aggregateEvents.size - count
-                val updatedEvents = aggregateEvents.filterIndexed { index, _ -> index < lastEventIndex }
-
-                aggregateEntity.setUnindexedProperty(eventsProperty, updatedEvents)
-                aggregateEntity.setUnindexedProperty(versionProperty, currentVersion - count)
-                if (snapshot != null) {
-                    dataStore.put(transaction, listOf(snapshot, aggregateEntity))
-                } else {
-                    dataStore.put(transaction, listOf(aggregateEntity))
-                }
-
-
-                transaction.commit()
-
-            } catch (ex: EntityNotFoundException) {
-                return RevertEventsResponse.AggregateNotFound(aggregateId, aggregateType)
+            if (count > aggregateEvents.size) {
+                return RevertEventsResponse.ErrorNotEnoughEventsToRevert(aggregateEvents.size, count)
             }
+
+            val lastEventIndex = aggregateEvents.size - count
+            val updatedEvents = aggregateEvents.filterIndexed { index, _ -> index < lastEventIndex }
+
+            val updatedAggregate = Entity.newBuilder(aggregateEntity)
+                    .set(eventsProperty, ListValue.of(updatedEvents.map { StringValue.newBuilder(it).setExcludeFromIndexes(true).build() }))
+                    .set(versionProperty, LongValue.newBuilder(currentVersion - count).setExcludeFromIndexes(true).build())
+                    .build()
+
+            if (snapshot != null) {
+                transaction.put(snapshot, updatedAggregate)
+            } else {
+                transaction.put(updatedAggregate)
+            }
+
+            transaction.commit()
 
         } catch (ex: Exception) {
             return RevertEventsResponse.Error("could not save events due: ${ex.message}")
@@ -413,38 +446,14 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         return RevertEventsResponse.Success(listOf())
     }
 
-    private fun aggregateKey(aggregateType: String, aggregateId: String?, aggregateIndex: Long): Key {
-        if (aggregateId.isNullOrEmpty()) {
-            return KeyFactory.createKey(kind, "${aggregateType}_$aggregateIndex")
-        }
-        return KeyFactory.createKey(kind, "${aggregateType}_${aggregateId}_$aggregateIndex")
-    }
-
-
-    private fun aggregateKey(snapshotKey: String, aggregateIndex: Long) =
-            KeyFactory.createKey(kind, "${snapshotKey}_$aggregateIndex")
-
-    private fun snapshotKey(aggregateId: String, aggregateType: String) =
-            KeyFactory.createKey(snapshotKind, "${aggregateType}_$aggregateId")
-
-    private fun adaptEvents(aggregateEvents: List<Text>): List<EventPayload> {
+    private fun adaptEvents(aggregateEvents: List<String>): List<EventPayload> {
         return aggregateEvents.map {
-            messageFormat.parse<EventModel>(ByteArrayInputStream(it.value.toByteArray(Charsets.UTF_8)), EventModel::class.java)
+            messageFormat.parse<EventModel>(ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)), EventModel::class.java)
         }.map { EventPayload(it.kind, it.timestamp, it.identityId, Binary(it.payload.toByteArray(Charsets.UTF_8))) }
     }
 
-    private fun getTextList(value: Any): MutableList<Text> {
-        return if (value is List<*>) {
-            value.map {
-                if (it is String) {
-                    Text(it)
-                } else {
-                    it as Text
-                }
-            }.toMutableList()
-        } else {
-            mutableListOf()
-        }
+    private fun getTextList(value: List<Value<String>>): MutableList<String> {
+        return value.map { it.get()!! }.toMutableList()
     }
 
 }
