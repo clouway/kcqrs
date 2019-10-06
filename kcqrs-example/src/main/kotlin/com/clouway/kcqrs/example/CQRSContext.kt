@@ -18,7 +18,6 @@ object CQRSContext {
 
     private var cqrs = AppEngineKcqrs.Builder(configuration, messageFormatFactory).build {
         kind = "Event"
-        kcqrsHandlerEndpoint = "/worker/kcqrs"
         identityProvider = IdentityProvider.Default()
     }
 

@@ -1,39 +1,55 @@
 package com.clouway.kcqrs.adapter.appengine
 
-import com.clouway.kcqrs.core.*
+import com.clouway.kcqrs.core.Aggregate
+import com.clouway.kcqrs.core.Binary
+import com.clouway.kcqrs.core.CreateSnapshot
+import com.clouway.kcqrs.core.EventPayload
+import com.clouway.kcqrs.core.GetAllEventsRequest
+import com.clouway.kcqrs.core.GetAllEventsResponse
+import com.clouway.kcqrs.core.GetEventsResponse
+import com.clouway.kcqrs.core.IdGenerators
+import com.clouway.kcqrs.core.Position
+import com.clouway.kcqrs.core.ReadDirection
+import com.clouway.kcqrs.core.RevertEventsResponse
+import com.clouway.kcqrs.core.SaveEventsResponse
+import com.clouway.kcqrs.core.SaveOptions
+import com.clouway.kcqrs.core.Snapshot
 import com.clouway.kcqrs.testing.TestMessageFormat
-import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig
-import com.google.appengine.tools.development.testing.LocalServiceTestHelper
+import com.clouway.testing.datastore.DatastoreCleaner
+import com.clouway.testing.datastore.DatastoreRule
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.equalTo
 import org.hamcrest.CoreMatchers.hasItems
 import org.hamcrest.CoreMatchers.not
-import org.junit.After
 import org.junit.Assert.assertThat
 import org.junit.Assert.fail
-import org.junit.Before
+import org.junit.ClassRule
+import org.junit.Rule
 import org.junit.Test
-import java.util.UUID
+import java.util.*
 
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class AppEngineEventStoreTest {
-    private val helper = LocalServiceTestHelper(LocalDatastoreServiceTestConfig()
-            .setDefaultHighRepJobPolicyUnappliedJobPercentage(0f))
 
-    @Before
-    fun setUp() {
-        helper.setUp()
+    companion object {
+        @ClassRule
+        @JvmField
+        val datastoreRule = DatastoreRule()
     }
 
-    @After
-    fun tearDown() {
-        helper.tearDown()
-    }
+    @Rule
+    @JvmField
+    var cleaner = DatastoreCleaner { datastoreRule.port }
 
-    private val aggregateBase = AppEngineEventStore("Event", TestMessageFormat(), IdGenerators.snowflake())
+    private val aggregateBase = AppEngineEventStore(
+            DefaultKeyQueryFactory(datastoreRule.datastore, "Event"),
+            datastoreRule.datastore,
+            TestMessageFormat(),
+            IdGenerators.snowflake()
+    )
 
     @Test
     fun getEventsThatAreStored() {
@@ -464,8 +480,8 @@ class AppEngineEventStoreTest {
     @Test
     fun onEventLimitReachSnapshotIsReturned() {
         aggregateBase.saveEvents("Invoice",
-            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data0::"))),
-            SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data0::"))),
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(true, Snapshot(0, Binary("::snapshotData::"))))
         )
 
         aggregateBase.saveEvents("Invoice",
@@ -519,7 +535,7 @@ class AppEngineEventStoreTest {
                 SaveOptions("::aggregateId::", 1, "::topic::", CreateSnapshot(true, Snapshot(1, Binary("::snapshotData::"))))
         )
 
-        val success = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as  GetEventsResponse.Success
+        val success = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
 
         val saveEvents = aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
@@ -562,11 +578,11 @@ class AppEngineEventStoreTest {
         val noSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
         val noSnapshotVersion = noSnapshotResponse.aggregates[0].version
 
-       aggregateBase.saveEvents("Invoice",
+        aggregateBase.saveEvents("Invoice",
                 listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
                 SaveOptions("::aggregateId::", noSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(noSnapshotVersion, Binary("::snapshotData::"))))
         )
-        
+
         //fetch the current aggregate value and provide the current version
         val firstSnapshotResponse = aggregateBase.getEvents(listOf("::aggregateId::"), "Invoice") as GetEventsResponse.Success
         val firstSnapshotVersion = firstSnapshotResponse.aggregates[0].version
@@ -603,8 +619,8 @@ class AppEngineEventStoreTest {
     fun getEventsForASpecificIndex() {
         // save event for first time
         aggregateBase.saveEvents("Invoice",
-            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
-            SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(false))
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data::"))),
+                SaveOptions("::aggregateId::", 0, "::topic::", CreateSnapshot(false))
         )
 
 
@@ -613,8 +629,8 @@ class AppEngineEventStoreTest {
         val noSnapshotVersion = noSnapshotResponse.aggregates[0].version
 
         aggregateBase.saveEvents("Invoice",
-            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))),
-            SaveOptions("::aggregateId::", noSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(noSnapshotVersion, Binary("::snapshotData::"))))
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))),
+                SaveOptions("::aggregateId::", noSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(noSnapshotVersion, Binary("::snapshotData::"))))
         )
 
         //fetch the current aggregate value and provide the current version
@@ -622,8 +638,8 @@ class AppEngineEventStoreTest {
         val firstSnapshotVersion = firstSnapshotResponse.aggregates[0].version
 
         val response = aggregateBase.saveEvents("Invoice",
-            listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
-            SaveOptions("::aggregateId::", firstSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(firstSnapshotVersion, Binary("::snapshotData2::"))))
+                listOf(EventPayload("::kind::", 1L, "::user 1::", Binary("::data2::"))),
+                SaveOptions("::aggregateId::", firstSnapshotVersion, "::topic::", CreateSnapshot(true, Snapshot(firstSnapshotVersion, Binary("::snapshotData2::"))))
         ) as SaveEventsResponse.Success
 
         val success = aggregateBase.getEvents("::aggregateId::", "Invoice", 1)
@@ -634,18 +650,18 @@ class AppEngineEventStoreTest {
         when (success) {
             is GetEventsResponse.Success -> {
                 assertThat(success, `is`(equalTo((
-                    GetEventsResponse.Success(
-                        listOf(Aggregate(
-                            response.aggregateId,
-                            "Invoice",
-                            null,
-                            2,
-                            listOf(
-                                EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))
-                            )
-                        ))
-                    )
-                    ))))
+                        GetEventsResponse.Success(
+                                listOf(Aggregate(
+                                        response.aggregateId,
+                                        "Invoice",
+                                        null,
+                                        2,
+                                        listOf(
+                                                EventPayload("::kind::", 1L, "::user 1::", Binary("::data1::"))
+                                        )
+                                ))
+                        )
+                        ))))
 
             }
             else -> fail("got unknown response when fetching stored events")

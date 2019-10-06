@@ -5,7 +5,7 @@ package com.clouway.kcqrs.adapter.appengine
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-internal data class EventModel(
+data class EventModel(
         @JvmField val kind: String,
         @JvmField val version: Long,
         @JvmField val identityId: String,
