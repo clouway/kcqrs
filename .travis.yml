@@ -1,10 +1,20 @@
 dist: trusty
+  apt:
+    packages:
+    - google-cloud-sdk
 language: java
 jdk:
   - oraclejdk8
+env:
+  - CI=true
+  - DATASTORE_HOST=localhost
+  - DATASTORE_PORT=8888
 before_cache:
   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
   - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+before_script:
+  - gcloud beta emulators datastore start --no-legacy --project testing --host-port=0.0.0.0:8888 --consistency=1 --no-store-on-disk &
+  - $(gcloud beta emulators datastore env-init)
 cache:
   directories:
     - $HOME/.gradle/caches/
