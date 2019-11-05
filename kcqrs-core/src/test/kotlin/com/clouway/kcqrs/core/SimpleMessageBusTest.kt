@@ -1,11 +1,13 @@
 package com.clouway.kcqrs.core
 
 
-import org.hamcrest.CoreMatchers.*
+import org.hamcrest.CoreMatchers.`is`
+import org.hamcrest.CoreMatchers.equalTo
+import org.hamcrest.CoreMatchers.nullValue
 import org.junit.Assert.assertThat
 import org.junit.Assert.fail
 import org.junit.Test
-import java.util.*
+import java.util.UUID
 
 
 /**
@@ -64,6 +66,28 @@ class SimpleMessageBusTest {
     }
 
     @Test
+    fun handleCommandWithCommandHandlerAndReturnResponse() {
+        val msgBus = SimpleMessageBus()
+
+        val handler = ChangeCustomerNameHandler()
+        msgBus.registerCommandHandler(ChangeCustomerName::class.java, handler)
+
+        val changeCustomerNameAction = ChangeCustomerName("Action")
+        val response = msgBus.send(changeCustomerNameAction)
+
+        assertThat(response, `is`("OK"))
+        assertThat(handler.lastCommand, `is`(changeCustomerNameAction))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun noProperHandlerFound() {
+        val msgBus = SimpleMessageBus()
+
+        val changeCustomerNameAction = ChangeCustomerName("Action")
+        msgBus.send(changeCustomerNameAction)
+    }
+
+    @Test
     fun sendIsValidatingReceivedCommand() {
         val msgBus = SimpleMessageBus()
 
@@ -86,13 +110,13 @@ class SimpleMessageBusTest {
         }
     }
 
-    @Test
+    @Test(expected = java.lang.IllegalArgumentException::class)
     fun noCommandHandler() {
         val msgBus = SimpleMessageBus()
         msgBus.send(ChangeCustomerName("Action"))
     }
 
-    @Test
+    @Test(expected = java.lang.IllegalArgumentException::class)
     fun commandsAreDispatchedByCommandType() {
         val msgBus = SimpleMessageBus()
 
@@ -157,17 +181,19 @@ class SimpleMessageBusTest {
     }
 
 
-    class ChangeCustomerNameHandler : CommandHandler<ChangeCustomerName> {
+    class ChangeCustomerNameHandler : CommandHandler<ChangeCustomerName, String> {
+
         var lastCommand: ChangeCustomerName? = null
 
-        override fun handle(command: ChangeCustomerName) {
+        override fun handle(command: ChangeCustomerName): String {
             lastCommand = command
+            return "OK"
         }
     }
 
-    class DummyCommand : Command
+    class DummyCommand : Command<String>
 
-    class ChangeCustomerName(val name: String) : Command
+    class ChangeCustomerName(val name: String) : Command<String>
 
     class MyEventHandler : EventHandler<MyEvent> {
         var lastEvent: MyEvent? = null

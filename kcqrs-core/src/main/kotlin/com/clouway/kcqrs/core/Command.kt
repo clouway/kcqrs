@@ -6,4 +6,4 @@ package com.clouway.kcqrs.core
  * 
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-interface Command
+interface Command<V>
