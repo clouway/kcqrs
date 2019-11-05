@@ -15,7 +15,7 @@ interface MessageBus {
      * @param aClass
      * @param handler
      */
-    fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>, validation: Validation<T> = Validation {})
+    fun <T : Command<R>, R> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T, R>, validation: Validation<T> = Validation {})
 
     /**
      * Register an event handler
@@ -39,7 +39,7 @@ interface MessageBus {
      * @throws AggregateNotFoundException
      */
     @Throws(EventCollisionException::class, HydrationException::class, AggregateNotFoundException::class)
-    fun <T : Command> send(command: T)
+    fun <T : Command<R>, R> send(command: T): R
 
     /**
      * Handles event using the registered event handlers.

@@ -2,6 +2,7 @@ package com.clouway.kcqrs.testing
 
 import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.Command
+import com.clouway.kcqrs.core.CommandHandler
 import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventWithPayload
 import org.hamcrest.CoreMatchers.`is`
@@ -14,13 +15,21 @@ import org.junit.Test
  */
 class InMemoryMessageBusTest {
 
+    @Test(expected = IllegalArgumentException::class)
+    fun handleCommandsWithNoHandler() {
+        val messageBus = InMemoryMessageBus()
+        val command = DummyCommand()
+        messageBus.send(command)
+    }
+
     @Test
     fun handleCommands() {
         val messageBus = InMemoryMessageBus()
         val command = DummyCommand()
+        messageBus.registerCommandHandler(DummyCommand::class.java, DummyCommandHandler())
         messageBus.send(command)
 
-        assertThat(messageBus.sentCommands[0], `is`(equalTo(command as Command)))
+        assertThat(messageBus.sentCommands[0], `is`(equalTo(command as Command<Any>)))
     }
 
     @Test
@@ -30,6 +39,9 @@ class InMemoryMessageBusTest {
         assertThat(messageBus.handledEvents[0].payload.payload, `is`(equalTo("::payload::".toByteArray())))
     }
 
-    class DummyCommand : Command
+    class DummyCommand : Command<String>
     class DummyEvent : Event
+    class DummyCommandHandler : CommandHandler<DummyCommand, String> {
+        override fun handle(command: DummyCommand) = "OK"
+    }
 }

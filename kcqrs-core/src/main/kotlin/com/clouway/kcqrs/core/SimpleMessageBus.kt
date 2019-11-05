@@ -11,7 +11,7 @@ class SimpleMessageBus : MessageBus {
     /**
      * List of command handlers per command
      */
-    private val commandHandlers: MutableMap<String, ValidatedCommandHandler<Command>> = mutableMapOf()
+    private val commandHandlers: MutableMap<String, ValidatedCommandHandler<Command<Any>, Any>> = mutableMapOf()
 
     /**                  `
      * List of event handlers per event
@@ -25,12 +25,12 @@ class SimpleMessageBus : MessageBus {
 
 
     @SuppressWarnings("unchecked")
-    override fun <T : Command> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T>, validation: Validation<T>) {
+    override fun <T : Command<R>, R> registerCommandHandler(aClass: Class<T>, handler: CommandHandler<T,R>, validation: Validation<T>) {
         val key = aClass.name
 
         val commandHandler = ValidatedCommandHandler(handler, validation)
         @Suppress("UNCHECKED_CAST")
-        commandHandlers[key] = commandHandler as ValidatedCommandHandler<Command>
+        commandHandlers[key] = commandHandler as ValidatedCommandHandler<Command<Any>, Any>
     }
 
     override fun <T : Event> registerEventHandler(aClass: Class<T>, handler: EventHandler<T>) {
@@ -47,21 +47,21 @@ class SimpleMessageBus : MessageBus {
         interceptors.add(interceptor)
     }
 
-    override fun <T : Command> send(command: T) {
+    override fun <T : Command<R>, R> send(command: T) : R  {
         val key = command::class.java.name
 
         if (!commandHandlers.containsKey(key)) {
-            return
+             throw IllegalArgumentException("No proper handler found!")
         }
 
-        val handler = commandHandlers[key] as ValidatedCommandHandler<T>
+        val handler = commandHandlers[key] as ValidatedCommandHandler<T, R>
 
         val errors = handler.validation.validate(command)
         if (!errors.isEmpty()) {
             throw ViolationErrorException(errors)
         }
 
-        handler.handler.handle(command)
+        return handler.handler.handle(command)
     }
     
     override fun handle(event: EventWithPayload) {
@@ -88,4 +88,4 @@ class SimpleMessageBus : MessageBus {
 
 }
 
-internal data class ValidatedCommandHandler<in T : Command>(val handler: CommandHandler<T>, val validation: Validation<T>)
+data class ValidatedCommandHandler<in T : Command<R>, R>(val handler: CommandHandler<T, R>, val validation: Validation<T>)
