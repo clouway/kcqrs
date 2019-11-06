@@ -32,9 +32,10 @@ interface AggregateRoot {
      * load the aggregate root
      *
      * @param history
+     * @param version the version of the aggregate
      * @throws HydrationException
      */
-    fun loadFromHistory(history: Iterable<Any>)
+    fun loadFromHistory(history: Iterable<Any>, version: Long)
 
     /**
      * Returns the version of the aggregate when it was hydrated

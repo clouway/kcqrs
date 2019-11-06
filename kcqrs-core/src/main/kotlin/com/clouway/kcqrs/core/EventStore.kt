@@ -1,7 +1,6 @@
 package com.clouway.kcqrs.core
 
-import java.util.Arrays
-import java.util.UUID
+import java.util.*
 
 /**
  * EventStore is an abstraction of the persistence layer of the EventStore.
@@ -13,37 +12,30 @@ interface EventStore {
     /**
      * Saves the provided list of events in to the aggregate.
      *
-     * @param events a list of events to be saved
+     * @param request the request that holds the events that needs to be persisted
      * @param saveOptions saving options
      * @throws EventCollisionException is thrown in case
      */
-    fun saveEvents(aggregateType: String, events: List<EventPayload>, saveOptions: SaveOptions = SaveOptions(version = 0L)): SaveEventsResponse
+    fun saveEvents(request: SaveEventsRequest, saveOptions: SaveOptions = SaveOptions(version = 0L)): SaveEventsResponse
 
     /**
      * Retrieves the events that are saved for the stored aggregate state.
      *
-     * @param aggregateId the ID of the aggregate which events should be retrieved
+     * @param request the request containing domain reference
      * @return a response of events
      */
-    fun getEvents(aggregateId: String, aggregateType: String, index: Long? = null): GetEventsResponse
-
-    /**
-     * Retrieves the events that are saved for the stored aggregates.
-     *
-     * @param aggregateIds a list of IDs of the aggregates which events should be retrieved
-     * @return a response of events for each of the requested aggregates
-     */
-    fun getEvents(aggregateIds: List<String>, aggregateType: String): GetEventsResponse
-
+    fun getEventsFromStreams(request: GetEventsFromStreamsRequest): GetEventsResponse
+    
     /**
      * Gets all events starting from given position of the aggregate.
      */
     fun getAllEvents(request: GetAllEventsRequest): GetAllEventsResponse
-    
+
+
     /**
      * Reverts last events that are stored for the aggregate.
      */
-    fun revertLastEvents(aggregateType: String, aggregateId: String, count: Int): RevertEventsResponse
+    fun revertLastEvents(tenant: String, stream: String, count: Int): RevertEventsResponse
 
 }
 
@@ -58,18 +50,27 @@ data class SaveOptions(var aggregateId: String = "", val version: Long = 0L, val
 data class CreateSnapshot(val required: Boolean = false, val snapshot: Snapshot? = null)
 
 /**
+ * SaveEventsRequest is a request that will be used to persist a list of events in their native form.
+ */
+data class SaveEventsRequest(val tenant: String,
+                             val stream: String,
+                             val aggregateType: String,
+                             val events: List<EventPayload>
+)
+
+/**
  * SaveEventsDataResponse is representing the returned result of saving of the events.
  */
 sealed class SaveEventsResponse {
     /**
      * Returned when save operation was successfully executed.
      */
-    data class Success(val aggregateId: String, val version: Long, val sequenceIds: List<Long>) : SaveEventsResponse()
+    data class Success(val version: Long, val sequenceIds: List<Long>, val aggregate: Aggregate) : SaveEventsResponse()
 
     /**
      * Returned when concurrent modification of the aggregate was executed and update was failed due collision.
      */
-    data class EventCollision(val aggregateId: String, val expectedVersion: Long) : SaveEventsResponse()
+    data class EventCollision(val expectedVersion: Long) : SaveEventsResponse()
 
     /**
      * Returned when error was encountered.
@@ -85,14 +86,19 @@ sealed class SaveEventsResponse {
      * Returned when aggregate's current Events persistence limit has been reached.
      */
 
-    data class SnapshotRequired(val currentEvents: List<EventPayload>, val currentSnapshot: Snapshot? = null) : SaveEventsResponse()
+    data class SnapshotRequired(val currentEvents: List<EventPayload>, val currentSnapshot: Snapshot? = null, val version: Long) : SaveEventsResponse()
 }
+
+data class GetEventsFromStreamsRequest(val tenant: String, val streams: List<String>) {
+    constructor(tenant: String, stream: String) : this(tenant, listOf(stream))
+}
+
 
 data class GetAllEventsRequest(
         val position: Position? = Position(0),
         val maxCount: Int = 100,
         val readDirection: ReadDirection = ReadDirection.FORWARD,
-        val aggregateTypes: List<String> = listOf()
+        val streams: List<String> = listOf()
 )
 
 sealed class GetAllEventsResponse {
@@ -130,12 +136,12 @@ sealed class RevertEventsResponse {
     data class Error(val message: String) : RevertEventsResponse()
 }
 
-data class Aggregate(val aggregateId: String, val aggregateType: String, val snapshot: Snapshot?, val version: Long, val events: List<EventPayload>)
+data class Aggregate(val aggregateType: String, val snapshot: Snapshot?, val version: Long, val events: List<EventPayload>)
 
 data class Snapshot(val version: Long, val data: Binary)
 
-data class EventPayload(val kind: String, val timestamp: Long, val identityId: String, val data: Binary) {
-    constructor(kind: String, payload: String) : this(kind, 0, "", Binary(payload.toByteArray(Charsets.UTF_8)))
+data class EventPayload(val aggregateId: String, val kind: String, val timestamp: Long, val identityId: String, val data: Binary) {
+    constructor(kind: String, payload: String) : this("", kind, 0, "", Binary(payload.toByteArray(Charsets.UTF_8)))
 }
 
 data class Binary(val payload: ByteArray) {

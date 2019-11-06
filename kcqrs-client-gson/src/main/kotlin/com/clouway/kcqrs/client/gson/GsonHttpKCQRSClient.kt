@@ -62,9 +62,7 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
             )
             
             val messageFormat = GsonMessageFormatFactory().createMessageFormat()
-
             val aggregateRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
-
             return GsonHttpKCQRSClient(messageBus, eventStore, AuthoredAggregateRepository(identityProvider, aggregateRepository))
         }
 

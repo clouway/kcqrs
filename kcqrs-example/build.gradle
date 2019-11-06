@@ -1,7 +1,7 @@
 group 'com.clouway.kcqrs.example'
 
 buildscript {
-  ext.kotlin_version = '1.3.71'
+  ext.kotlin_version = '1.4.10'
   ext.gae_version = '1.9.56'
 
   repositories {

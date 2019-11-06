@@ -3,7 +3,7 @@ group 'com.clouway.kcqrs'
 description = 'kcqrs-client'
 
 buildscript {
-  ext.kotlin_version = '1.3.71'
+  ext.kotlin_version = '1.4.10'
 
   repositories {
     mavenCentral()
