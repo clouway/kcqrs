@@ -5,4 +5,4 @@ package com.clouway.kcqrs.core
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-data class IndexedEvent(val position: Position, val aggregateId: String, val aggregateType: String, val version: Long, val payload: EventPayload)
+data class IndexedEvent(val position: Position,val tenant: String, val aggregateType: String, val version: Long, val payload: EventPayload)

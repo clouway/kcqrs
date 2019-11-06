@@ -1,8 +1,7 @@
-group 'com.clouway.kcqrs'
+group 'com.clouway.kcqrs.adapters'
 
 buildscript {
   ext.kotlin_version = '1.4.10'
-  ext.gae_version = '1.9.56'
 
   repositories {
     mavenCentral()
@@ -19,14 +18,17 @@ sourceCompatibility = 1.8
 
 repositories {
   mavenCentral()
-}                                                           
+}
 
 dependencies {
   compile project(':kcqrs-core')
-
-  compile 'com.google.code.gson:gson:2.8.0'
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-  compile group: 'junit', name: 'junit', version: '4.12'
+                        
+  compile 'com.google.cloud:google-cloud-firestore:1.35.2'
+  
+  testCompile project(':kcqrs-testing')
+  testCompile "junit:junit:4.12"
+  testCompile 'com.clouway.testing:cloud-firestore-testing:0.0.9'
 
 }
 

@@ -55,10 +55,11 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return if (changes.isEmpty()) listOf() else changes
     }
 
-    override fun loadFromHistory(history: Iterable<Any>) {
+    override fun loadFromHistory(history: Iterable<Any>, version: Long) {
+        this.version = version
         for (event in history) {
             applyChange(event, false)
-            version++
+
         }
     }
 

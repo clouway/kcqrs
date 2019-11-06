@@ -1,8 +1,8 @@
-package com.clouway.kcqrs.adapter.appengine
+package com.clouway.kcqrs.adapter.firestore
 
 /**
  * EventModel is an internal data class which is representing the persistent state of single event in the EventStore.
- *
+ * 
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 internal data class EventModel(

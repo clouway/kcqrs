@@ -7,4 +7,4 @@ import java.time.Instant
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-data class Identity(val id: String, val time: Instant)
+data class Identity(val id: String, val tenant: String, val time: Instant)

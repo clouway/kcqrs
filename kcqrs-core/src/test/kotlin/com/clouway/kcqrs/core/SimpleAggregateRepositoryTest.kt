@@ -11,7 +11,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.UUID
+import java.util.*
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -24,7 +24,7 @@ class SimpleAggregateRepositoryTest {
         }
     }
 
-    private val anyIdentity = Identity("::user id::", LocalDateTime.of(2018, 4, 1, 10, 12, 34).toInstant(ZoneOffset.UTC))
+    private val anyIdentity = Identity("::user id::", "tenant1", LocalDateTime.of(2018, 4, 1, 10, 12, 34).toInstant(ZoneOffset.UTC))
 
     @Test
     fun happyPath() {
@@ -32,8 +32,21 @@ class SimpleAggregateRepositoryTest {
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
         eventRepository.save(invoice, anyIdentity)
 
-        val loadedInvoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java)
+        val loadedInvoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java, anyIdentity)
         assertThat(loadedInvoice.customerName, equalTo("John"))
+    }
+
+    @Test
+    fun getStreams() {
+        val invoice1 = Invoice("invoice1", "John")
+        val invoice2 = Invoice("invoice1", "John")
+        
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+
+        eventRepository.save(invoice1, anyIdentity)
+        eventRepository.save(invoice2, anyIdentity)
+
+        val results = eventRepository.getByIds(listOf("invoice1", "invoice2"), Invoice::class.java, anyIdentity)
     }
 
     @Test(expected = AggregateNotFoundException::class)
@@ -45,7 +58,7 @@ class SimpleAggregateRepositoryTest {
 
         eventRepository.save(invoice, anyIdentity)
 
-        eventRepository.getById(invoice.getId()!!, Invoice::class.java)
+        eventRepository.getById(invoice.getId()!!, Invoice::class.java, anyIdentity)
     }
 
     @Test
@@ -56,12 +69,12 @@ class SimpleAggregateRepositoryTest {
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), eventPublisher, configuration)
         eventRepository.save(initialInvoice, anyIdentity)
 
-        var invoice = eventRepository.getById(initialInvoice.getId()!!, Invoice::class.java)
+        var invoice = eventRepository.getById(initialInvoice.getId()!!, Invoice::class.java, anyIdentity)
 
         invoice.changeCustomerName("Peter")
         eventRepository.save(invoice, anyIdentity)
 
-        invoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java)
+        invoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java, anyIdentity)
 
         assertThat(invoice.customerName, equalTo("Peter"))
         assertThat(eventPublisher.events.size, equalTo(2))
@@ -95,14 +108,15 @@ class SimpleAggregateRepositoryTest {
         val eventStore = InMemoryEventStore(5)
         val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), InMemoryEventPublisher(), configuration)
 
-        eventStore.pretendThatNextSaveWillReturn(SaveEventsResponse.EventCollision(invoice.getId()!!, 3L))
+        eventStore.pretendThatNextSaveWillReturn(SaveEventsResponse.EventCollision(3L))
 
         eventRepository.save(invoice, anyIdentity)
     }
 
     @Test
     fun rollbackEventsIfSendFails() {
-        val invoice = Invoice(invoiceId(), "John")
+        val invoiceId = invoiceId()
+        val invoice = Invoice(invoiceId, "John")
         val eventPublisher = InMemoryEventPublisher()
         val eventStore = InMemoryEventStore(5)
         val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), eventPublisher, configuration)
@@ -110,10 +124,10 @@ class SimpleAggregateRepositoryTest {
         eventPublisher.pretendThatNextPublishWillFail()
 
         try {
-            eventRepository.save(invoice, anyIdentity)
+            eventRepository.save("Invoice_$invoiceId", invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
+            val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(anyIdentity.tenant, "Invoice_$invoiceId")) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.isEmpty(), `is`(true))
         }
     }
@@ -129,7 +143,7 @@ class SimpleAggregateRepositoryTest {
                 eventPublisher,
                 configuration
         )
-
+        
         eventRepository.save(invoice, anyIdentity)
 
         invoice.changeCustomerName("Peter")
@@ -139,7 +153,7 @@ class SimpleAggregateRepositoryTest {
             eventRepository.save(invoice, anyIdentity)
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
-            val response = eventStore.getEvents(invoice.getId()!!, Invoice::class.java.simpleName) as GetEventsResponse.Success
+            val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(anyIdentity.tenant, "Invoice_${invoice.getId()}")) as GetEventsResponse.Success
             assertThat(response.aggregates[0].events.size, `is`(1))
         }
     }
@@ -153,7 +167,7 @@ class SimpleAggregateRepositoryTest {
                 configuration
         )
 
-        eventRepository.getById("::any id::", Invoice::class.java)
+        eventRepository.getById("::any id::", Invoice::class.java, anyIdentity)
     }
 
     @Test
@@ -164,7 +178,7 @@ class SimpleAggregateRepositoryTest {
         eventRepository.save(firstInvoice, anyIdentity)
         eventRepository.save(secondInvoice, anyIdentity)
 
-        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, secondInvoice.getId()!!), Invoice::class.java)
+        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, secondInvoice.getId()!!), Invoice::class.java, anyIdentity)
         assertThat(loadedInvoices, `is`(equalTo(mapOf(
                 firstInvoice.getId()!! to firstInvoice,
                 secondInvoice.getId()!! to secondInvoice
@@ -177,7 +191,7 @@ class SimpleAggregateRepositoryTest {
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
         eventRepository.save(firstInvoice, anyIdentity)
 
-        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, "::any unknown id::"), Invoice::class.java)
+        val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, "::any unknown id::"), Invoice::class.java, anyIdentity)
         assertThat(loadedInvoices, `is`(equalTo(mapOf(
                 firstInvoice.getId()!! to firstInvoice
         ))))
@@ -187,7 +201,7 @@ class SimpleAggregateRepositoryTest {
     fun getMultipleAggregatesAndNothingIsReturned() {
         val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
 
-        val invoices = eventRepository.getByIds(listOf("::id 1::", "::id 2::"), Invoice::class.java)
+        val invoices = eventRepository.getByIds(listOf("::id 1::", "::id 2::"), Invoice::class.java, anyIdentity)
         assertThat(invoices, `is`(equalTo(mapOf())))
     }
 
@@ -203,7 +217,7 @@ class SimpleAggregateRepositoryTest {
 
         assertThat(eventStore.saveEventOptions.last.version, `is`(0L))
 
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         aggregate.changeLong(123)
         eventRepository.save(aggregate, anyIdentity)
@@ -211,7 +225,7 @@ class SimpleAggregateRepositoryTest {
         assertThat(eventStore.saveEventOptions.last.version, `is`(1L))
         assertThat(eventStore.saveEventOptions.last.createSnapshot.snapshot!!.version, `is`(1L))
 
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         assertThat(aggregate.getExpectedVersion(), `is`(2L)) // after the last event
         assertThat(aggregate.long, equalTo(123L))
@@ -225,24 +239,24 @@ class SimpleAggregateRepositoryTest {
         var aggregate = TestAggreagate("::id::", "::string::", 1, TestObject("::value::", Foo("bar")), listOf(TestObject("::value2::", Foo("baar"))))
 
         eventRepository.save(aggregate, anyIdentity)
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         aggregate.changeLong(123)
         eventRepository.save(aggregate, anyIdentity)
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         aggregate.changeString("newString")
         eventRepository.save(aggregate, anyIdentity)
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         aggregate.changeObject(TestObject("otherValue", Foo("FooBar")))
         eventRepository.save(aggregate, anyIdentity)
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         aggregate.changeList(listOf(TestObject("otherValueInList", Foo("BarFoo"))))
         eventRepository.save(aggregate, anyIdentity)
 
-        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java)
+        aggregate = eventRepository.getById(aggregate.getId()!!, TestAggreagate::class.java, anyIdentity)
 
         assertThat(aggregate.long, equalTo(123L))
         assertThat(aggregate.string, equalTo("newString"))
@@ -260,11 +274,11 @@ class SimpleAggregateRepositoryTest {
 
         invoice.changeCustomerName("Smith")
         eventRepository.save(invoice, anyIdentity)
-        invoice = eventRepository.getById(id, Invoice::class.java)
+        invoice = eventRepository.getById(id, Invoice::class.java, anyIdentity)
 
         invoice.changeCustomerName("Foo")
         eventRepository.save(invoice, anyIdentity)
-        invoice = eventRepository.getById(id, Invoice::class.java)
+        invoice = eventRepository.getById(id, Invoice::class.java, anyIdentity)
 
         assertThat(invoice.customerName, `is`(equalTo("Foo")))
     }
