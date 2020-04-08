@@ -259,9 +259,17 @@ class AppEngineEventStore(private val kind: String = "Event", private val messag
         } catch (ex: EntityNotFoundException) {
             return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
         }
-
+    
+        /**
+         * The events property could be null due JVM interpolability of the datastore API that could
+         * cause empty list to be persisted as null field. This check ensures that even in this situations
+         * proper response will be returned from the eventstore.
+         */
+        val eventsValue = aggregate.getProperty(eventsProperty)
+        ?: return GetEventsResponse.AggregateNotFound(listOf(aggregateId), aggregateType)
+    
         @Suppress("UNCHECKED_CAST")
-        val aggregateEvents = getTextList(aggregate.getProperty(eventsProperty))
+        val aggregateEvents = getTextList(eventsValue)
         val currentVersion = aggregate.getProperty(versionProperty) as Long
 
         val events = aggregateEvents.map {

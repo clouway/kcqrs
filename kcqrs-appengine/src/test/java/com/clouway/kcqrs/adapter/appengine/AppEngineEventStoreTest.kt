@@ -213,6 +213,21 @@ class AppEngineEventStoreTest {
     fun revertZeroEventsIsNotAllowed() {
         aggregateBase.revertLastEvents("Task", "::any id::", 0)
     }
+    
+    @Test
+    fun getEventAfterRevert() {
+        val events = listOf(
+            EventPayload("::kind 1::", 1L, "::user1::", Binary("data0")),
+            EventPayload("::kind 2::", 2L, "::user1::", Binary("data0")),
+            EventPayload("::kind 2::", 3L, "::user1::", Binary("data0")),
+            EventPayload("::kind 2::", 4L, "::user1::", Binary("data0"))
+        )
+        
+        aggregateBase.saveEvents("Task", events, saveOptions = SaveOptions(aggregateId = "QnogQXP2kNo", version = 0))
+        
+        val rr = aggregateBase.revertLastEvents("Task", "QnogQXP2kNo", events.size)
+        aggregateBase.getEvents("Task", "::any id::") as GetEventsResponse.AggregateNotFound
+    }
 
     @Test
     fun revertingMoreThenTheAvailableEvents() {
