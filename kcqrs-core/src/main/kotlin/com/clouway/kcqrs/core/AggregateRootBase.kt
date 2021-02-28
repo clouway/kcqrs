@@ -1,6 +1,8 @@
 package com.clouway.kcqrs.core
 
+import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.gson.Gson
+import java.io.ByteArrayInputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.ArrayList
@@ -22,8 +24,12 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
     }
 
     @Suppress("UNCHECKED_CAST")
-    final override fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long): T {
-        val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
+    final override fun <T : AggregateRoot> fromSnapshot(
+        snapshotData: ByteArray,
+        snapshotVersion: Long,
+        messageFormat: MessageFormat
+    ): T {
+        val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion, messageFormat)
         val newInstance = this@AggregateRootBase::class.java.newInstance()
         setFields(snapshotRootBase, newInstance)
         newInstance.version = snapshotVersion
@@ -31,15 +37,17 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
     }
 
     override fun getSnapshotMapper(): SnapshotMapper<AggregateRoot> {
-        //TODO(V.Mitov) Pass a serializer so that type adapters could be used
         return object : SnapshotMapper<AggregateRoot> {
-            val gson = Gson()
-            override fun toSnapshot(data: AggregateRoot): Snapshot {
-                return Snapshot(data.getExpectedVersion(), Binary(gson.toJson(data)))
+            override fun toSnapshot(data: AggregateRoot, messageFormat: MessageFormat): Snapshot {
+                return Snapshot(data.getExpectedVersion(), Binary(messageFormat.formatToBytes(data)))
             }
-
-            override fun fromSnapshot(snapshot: ByteArray, snapshotVersion: Long): AggregateRoot {
-                return gson.fromJson(snapshot.toString(Charsets.UTF_8), this@AggregateRootBase::class.java)
+            
+            override fun fromSnapshot(
+                snapshot: ByteArray,
+                snapshotVersion: Long,
+                messageFormat: MessageFormat
+            ): AggregateRoot {
+                return messageFormat.parse(ByteArrayInputStream(snapshot), this@AggregateRootBase::class.java.simpleName)
             }
         }
     }
@@ -60,7 +68,6 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         this.version = version
         for (event in history) {
             applyChange(event, false)
-
         }
     }
 

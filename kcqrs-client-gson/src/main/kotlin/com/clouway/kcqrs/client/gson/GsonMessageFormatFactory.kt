@@ -6,10 +6,10 @@ import com.clouway.kcqrs.core.messages.MessageFormatFactory
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class GsonMessageFormatFactory : MessageFormatFactory {
+class GsonMessageFormatFactory(vararg var types: Class<*>) : MessageFormatFactory {
 
     override fun createMessageFormat(): MessageFormat {
-        return GsonMessageFormat()
+        return GsonMessageFormat(*types)
     }
 
 }

@@ -12,6 +12,7 @@ import com.clouway.kcqrs.core.Kcqrs
 import com.clouway.kcqrs.core.MessageBus
 import com.clouway.kcqrs.core.SimpleAggregateRepository
 import com.clouway.kcqrs.core.SimpleMessageBus
+import com.clouway.kcqrs.core.messages.DataModelFormat
 import com.clouway.kcqrs.core.messages.MessageFormatFactory
 
 
@@ -24,9 +25,11 @@ import com.clouway.kcqrs.core.messages.MessageFormatFactory
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class AppEngineKcqrs private constructor(private val messageBus: MessageBus,
-                     private val eventStore: EventStore,
-                     private val aggregateRepository: AggregateRepository) : Kcqrs {
+class AppEngineKcqrs private constructor(
+    private val messageBus: MessageBus,
+    private val eventStore: EventStore,
+    private val aggregateRepository: AggregateRepository
+) : Kcqrs {
 
     override fun eventStore(): EventStore {
         return eventStore
@@ -40,14 +43,17 @@ class AppEngineKcqrs private constructor(private val messageBus: MessageBus,
         return aggregateRepository
     }
 
-    class Builder(private val configuration: Configuration, private val messageFormatFactory: MessageFormatFactory) {
+    class Builder(private val configuration: Configuration,
+                  private val dataModelFormat: DataModelFormat,
+                  private val messageFormatFactory: MessageFormatFactory
+                  ) {
         private val messageBus = SimpleMessageBus()
         var kind: String = "Event"
         var kcqrsHandlerEndpoint = "/worker/kcqrs"
         var queueName: String? = null
         var identityProvider: IdentityProvider = IdentityProvider.Default()
         var idGenerator: IdGenerator = IdGenerators.snowflake()
-        var eventStore = AppEngineEventStore(kind, messageFormatFactory.createMessageFormat(), idGenerator)
+        var eventStore = AppEngineEventStore(kind, dataModelFormat, idGenerator)
         var eventPublisher: EventPublisher = TaskQueueEventPublisher(kcqrsHandlerEndpoint, queueName)
 
         fun build(init: Builder.() -> Unit): Kcqrs {

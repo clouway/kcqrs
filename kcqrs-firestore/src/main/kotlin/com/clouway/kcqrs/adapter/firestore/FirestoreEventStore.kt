@@ -17,6 +17,7 @@ import com.clouway.kcqrs.core.SaveEventsRequest
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
 import com.clouway.kcqrs.core.Snapshot
+import com.clouway.kcqrs.core.messages.DataModelFormat
 import com.clouway.kcqrs.core.messages.MessageFormat
 import com.google.cloud.firestore.Blob
 import com.google.cloud.firestore.DocumentReference
@@ -30,7 +31,7 @@ import java.io.ByteArrayInputStream
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
 class FirestoreEventStore(private val firestore: Firestore,
-                          private val messageFormat: MessageFormat,
+                          private val messageFormat: DataModelFormat,
                           private val idGenerator: IdGenerator
 ) : EventStore {
 

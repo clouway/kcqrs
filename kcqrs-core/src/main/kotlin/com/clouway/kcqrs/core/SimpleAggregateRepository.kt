@@ -2,7 +2,7 @@ package com.clouway.kcqrs.core
 
 import com.clouway.kcqrs.core.messages.MessageFormat
 import java.io.ByteArrayInputStream
-import java.util.*
+import java.util.UUID
 
 
 class SimpleAggregateRepository(private val eventStore: EventStore,
@@ -59,8 +59,8 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             //The chosen persistence has reached it's limit for events so a snapshot needs to be created.
             is SaveEventsResponse.SnapshotRequired -> {
                 val currentAggregate = buildAggregateFromHistory(aggregateClass, response.currentEvents, response.version, aggregate.getId()!!, response.currentSnapshot)
-
-                val newSnapshot = currentAggregate.getSnapshotMapper().toSnapshot(currentAggregate)
+                
+                val newSnapshot = currentAggregate.getSnapshotMapper().toSnapshot(currentAggregate, messageFormat)
                 val createSnapshotResponse = eventStore.saveEvents(
                         saveEventsRequest,
                         SaveOptions(
@@ -187,11 +187,11 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         val adapter = AggregateAdapter<T>("apply")
         adapter.fetchMetadata(type)
         val history = mutableListOf<Any>()
-
         events.forEach {
-            val eventType = Class.forName(adapter.eventType(it.kind))
-            val event = messageFormat.parse<Any>(ByteArrayInputStream(it.data.payload), eventType)
-            history.add(event)
+            if (messageFormat.isSupporting(it.kind)) {
+                val event = messageFormat.parse<Any>(ByteArrayInputStream(it.data.payload), it.kind)
+                history.add(event)
+            }
         }
 
         /*
@@ -201,7 +201,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         try {
             aggregate = type.newInstance()
             if (snapshot != null) {
-                aggregate = aggregate.fromSnapshot(snapshot.data.payload, snapshot.version) as T
+                aggregate = aggregate.fromSnapshot(snapshot.data.payload, snapshot.version, messageFormat) as T
             }
         } catch (e: InstantiationException) {
             throw HydrationException(id, "target type: '${type.name}' cannot be instantiated")

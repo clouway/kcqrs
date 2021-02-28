@@ -5,6 +5,7 @@ import com.clouway.kcqrs.core.Event
 import com.clouway.kcqrs.core.EventWithPayload
 import com.clouway.kcqrs.core.MessageBus
 import com.clouway.kcqrs.core.PublishErrorException
+import com.clouway.kcqrs.core.SyncEventPublisher
 import com.clouway.kcqrs.testing.InMemoryMessageBus
 import org.hamcrest.Matchers.`is`
 import org.hamcrest.Matchers.containsInAnyOrder

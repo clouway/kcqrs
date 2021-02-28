@@ -2,7 +2,6 @@ group 'com.clouway.kcqrs.example'
 
 buildscript {
   ext.kotlin_version = '1.4.10'
-  ext.gae_version = '1.9.56'
 
   repositories {
     jcenter()
@@ -10,17 +9,12 @@ buildscript {
   }
   dependencies {
     classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    classpath 'com.google.cloud.tools:appengine-gradle-plugin:1.+'
-    classpath 'org.akhikhl.gretty:gretty:+'
-
   }
 }
 
 apply plugin: 'java'
 apply plugin: 'war'
 apply plugin: 'kotlin'
-apply plugin: 'org.akhikhl.gretty'
-apply plugin: 'com.google.cloud.tools.appengine'
 
 sourceCompatibility = 1.8
 
@@ -29,38 +23,27 @@ repositories {
 }
 
 dependencies {
-  compile project(':kcqrs-appengine')
+  compile project(':kcqrs-firestore')
   compile project(':kcqrs-client')
   compile project(':kcqrs-client-gson')
+  compile project(':kcqrs-messages-proto')
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
   compile 'com.google.http-client:google-http-client:1.23.0'
-  
-  providedCompile "com.google.appengine:appengine:$gae_version"
-  compile "com.google.appengine:appengine-api-1.0-sdk:$gae_version"
-  compile "com.google.appengine:appengine-tools-sdk:$gae_version"
-  compile 'com.sparkjava:spark-kotlin:1.0.0-alpha'
-  compile 'com.google.code.gson:gson:2.8.0'
 
-  testCompile group: 'org.eclipse.jetty', name: 'jetty-server', version: '8.1.8.v20121106'
-  testCompile group: 'org.eclipse.jetty', name: 'jetty-servlet', version: '8.1.8.v20121106'
+  implementation "javax.servlet:javax.servlet-api:3.1.0"
+     
+  compile "org.eclipse.jetty:jetty-server:9.4.31.v20200723"
+  compile "org.eclipse.jetty:jetty-servlet:9.4.31.v20200723"
+
+  compile "com.sparkjava:spark-core:2.8.0"
+  compile "com.sparkjava:spark-kotlin:1.0.0-alpha"
+  compile 'com.google.code.gson:gson:2.8.0'
+  compile 'com.google.protobuf:protobuf-java:3.15.3'
+  
   testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
-gretty {
-  httpPort = 8080
-  contextPath = '/'
-  servletContainer = 'jetty9'  // What App Engine Flexible uses
-}
-
-appengine {
-
-  deploy {   // deploy configuration
-    stopPreviousVersion = true  // default - stop the current version
-    promote = true              // default - & make this the current version
-  }
-
-}
 
 compileKotlin {
   kotlinOptions.jvmTarget = "1.8"

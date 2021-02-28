@@ -1,5 +1,7 @@
 package com.clouway.kcqrs.core
 
+import com.clouway.kcqrs.core.messages.MessageFormat
+
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
@@ -52,7 +54,7 @@ interface AggregateRoot {
     /**
      * Builds an aggregate from snapshot data and the current version of the snapshot
      */
-    fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long): T
+    fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long, messageFormat: MessageFormat): T
 }
 
 
@@ -61,10 +63,10 @@ interface SnapshotMapper<T : AggregateRoot> {
     /**
      * Serializes the current entity to a string snapshot
      */
-    fun toSnapshot(data: T): Snapshot
+    fun toSnapshot(data: T, messageFormat: MessageFormat): Snapshot
 
     /**
      * Create an aggregate from given snapshot
      */
-    fun fromSnapshot(snapshot: ByteArray, snapshotVersion: Long): T
+    fun fromSnapshot(snapshot: ByteArray, snapshotVersion: Long, messageFormat: MessageFormat): T
 }

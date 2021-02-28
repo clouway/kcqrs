@@ -1,7 +1,7 @@
 package com.clouway.kcqrs.client.gson
 
 import com.clouway.kcqrs.client.HttpEventStore
-import com.clouway.kcqrs.client.SyncEventPublisher
+import com.clouway.kcqrs.core.SyncEventPublisher
 import com.clouway.kcqrs.core.AggregateRepository
 import com.clouway.kcqrs.core.AuthoredAggregateRepository
 import com.clouway.kcqrs.core.Configuration

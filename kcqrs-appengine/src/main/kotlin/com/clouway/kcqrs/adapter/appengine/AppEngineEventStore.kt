@@ -17,7 +17,7 @@ import com.clouway.kcqrs.core.SaveEventsRequest
 import com.clouway.kcqrs.core.SaveEventsResponse
 import com.clouway.kcqrs.core.SaveOptions
 import com.clouway.kcqrs.core.Snapshot
-import com.clouway.kcqrs.core.messages.MessageFormat
+import com.clouway.kcqrs.core.messages.DataModelFormat
 import com.google.appengine.api.datastore.Blob
 import com.google.appengine.api.datastore.DatastoreServiceFactory
 import com.google.appengine.api.datastore.Entity
@@ -35,7 +35,7 @@ import java.io.ByteArrayInputStream
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: MessageFormat, private val idGenerator: IdGenerator) : EventStore {
+class AppEngineEventStore(private val kind: String = "Event", private val messageFormat: DataModelFormat, private val idGenerator: IdGenerator) : EventStore {
 
     /**
      * Entity Kind used for storing of snapshots.

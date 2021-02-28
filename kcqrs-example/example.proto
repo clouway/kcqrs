@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package example;
+
+option java_package = "com.clouway.kcqrs.example.pb";
+option java_outer_classname = "ProductProtos";
+
+message ProductRegisteredEvent {
+  string id = 1;
+  string name = 2;
+}
+
+message ProductNameChangedEvent {
+  string name = 2;
+}
+
+

@@ -1,4 +1,5 @@
-import com.clouway.kcqrs.client.HttpEventStore
+package com.clouway.kcqrs.client
+
 import com.clouway.kcqrs.core.Aggregate
 import com.clouway.kcqrs.core.Binary
 import com.clouway.kcqrs.core.CreateSnapshot
@@ -22,7 +23,6 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.testing.http.MockHttpTransport
 import com.google.api.client.testing.http.MockLowLevelHttpRequest
 import com.google.api.client.testing.http.MockLowLevelHttpResponse
-import org.hamcrest.Matchers
 import org.hamcrest.Matchers.`is`
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.hasItems

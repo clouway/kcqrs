@@ -1,6 +1,4 @@
-package com.clouway.kcqrs.client
-
-import com.clouway.kcqrs.core.*
+package com.clouway.kcqrs.core
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)

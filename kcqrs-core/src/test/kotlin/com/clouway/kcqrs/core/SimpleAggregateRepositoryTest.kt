@@ -11,7 +11,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.*
+import java.util.UUID
 
 /**
  * @author Miroslav Genov (miroslav.genov@clouway.com)
@@ -24,12 +24,23 @@ class SimpleAggregateRepositoryTest {
         }
     }
 
+    private val messageFormat = TestMessageFormat(
+        InvoiceCreatedEvent::class.java,
+        ChangeCustomerName::class.java,
+        ChangeListEvent::class.java,
+        TestClassCreatedEvent::class.java,
+        ChangeStringEvent::class.java,
+        ChangeLongEvent::class.java,
+        ChangeObjectEvent::class.java,
+        ChangeListEvent::class.java
+    )
+    
     private val anyIdentity = Identity("::user id::", "tenant1", LocalDateTime.of(2018, 4, 1, 10, 12, 34).toInstant(ZoneOffset.UTC))
 
     @Test
     fun happyPath() {
         val invoice = Invoice(invoiceId(), "John")
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
         eventRepository.save(invoice, anyIdentity)
 
         val loadedInvoice = eventRepository.getById(invoice.getId()!!, Invoice::class.java, anyIdentity)
@@ -41,7 +52,7 @@ class SimpleAggregateRepositoryTest {
         val invoice1 = Invoice("invoice1", "John")
         val invoice2 = Invoice("invoice1", "John")
         
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
 
         eventRepository.save(invoice1, anyIdentity)
         eventRepository.save(invoice2, anyIdentity)
@@ -51,7 +62,7 @@ class SimpleAggregateRepositoryTest {
 
     @Test(expected = AggregateNotFoundException::class)
     fun notSaveAggregateWithoutEvents() {
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
 
         val invoice = Invoice(invoiceId(), "John")
         invoice.markChangesAsCommitted()
@@ -66,7 +77,7 @@ class SimpleAggregateRepositoryTest {
         val initialInvoice = Invoice(invoiceId(), "John")
 
         val eventPublisher = InMemoryEventPublisher()
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), eventPublisher, configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, eventPublisher, configuration)
         eventRepository.save(initialInvoice, anyIdentity)
 
         var invoice = eventRepository.getById(initialInvoice.getId()!!, Invoice::class.java, anyIdentity)
@@ -85,10 +96,10 @@ class SimpleAggregateRepositoryTest {
         val invoice = Invoice(invoiceId(), "John")
         val eventPublisher = InMemoryEventPublisher()
         val eventRepository = SimpleAggregateRepository(
-                InMemoryEventStore(5),
-                TestMessageFormat(),
-                eventPublisher,
-                configuration
+            InMemoryEventStore(5),
+            messageFormat,
+            eventPublisher,
+            configuration
         )
         eventRepository.save(invoice, anyIdentity)
 
@@ -106,7 +117,7 @@ class SimpleAggregateRepositoryTest {
     fun eventCollision() {
         val invoice = Invoice(invoiceId(), "John")
         val eventStore = InMemoryEventStore(5)
-        val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(eventStore, messageFormat, InMemoryEventPublisher(), configuration)
 
         eventStore.pretendThatNextSaveWillReturn(SaveEventsResponse.EventCollision(3L))
 
@@ -119,7 +130,7 @@ class SimpleAggregateRepositoryTest {
         val invoice = Invoice(invoiceId, "John")
         val eventPublisher = InMemoryEventPublisher()
         val eventStore = InMemoryEventStore(5)
-        val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), eventPublisher, configuration)
+        val eventRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
 
         eventPublisher.pretendThatNextPublishWillFail()
 
@@ -138,10 +149,10 @@ class SimpleAggregateRepositoryTest {
         val eventStore = InMemoryEventStore(5)
         val eventPublisher = InMemoryEventPublisher()
         val eventRepository = SimpleAggregateRepository(
-                eventStore,
-                TestMessageFormat(),
-                eventPublisher,
-                configuration
+            eventStore,
+            messageFormat,
+            eventPublisher,
+            configuration
         )
         
         eventRepository.save(invoice, anyIdentity)
@@ -162,7 +173,7 @@ class SimpleAggregateRepositoryTest {
     fun getUnknownAggregate() {
         val eventRepository = SimpleAggregateRepository(
                 InMemoryEventStore(5),
-                TestMessageFormat(),
+                messageFormat,
                 InMemoryEventPublisher(),
                 configuration
         )
@@ -174,7 +185,7 @@ class SimpleAggregateRepositoryTest {
     fun getMultipleAggregates() {
         val firstInvoice = Invoice(invoiceId(), "John")
         val secondInvoice = Invoice(invoiceId(), "Peter")
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
         eventRepository.save(firstInvoice, anyIdentity)
         eventRepository.save(secondInvoice, anyIdentity)
 
@@ -188,7 +199,7 @@ class SimpleAggregateRepositoryTest {
     @Test
     fun getMultipleInvoicesOneFoundOneNot() {
         val firstInvoice = Invoice(invoiceId(), "John")
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
         eventRepository.save(firstInvoice, anyIdentity)
 
         val loadedInvoices = eventRepository.getByIds(listOf(firstInvoice.getId()!!, "::any unknown id::"), Invoice::class.java, anyIdentity)
@@ -199,7 +210,7 @@ class SimpleAggregateRepositoryTest {
 
     @Test
     fun getMultipleAggregatesAndNothingIsReturned() {
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(5), messageFormat, InMemoryEventPublisher(), configuration)
 
         val invoices = eventRepository.getByIds(listOf("::id 1::", "::id 2::"), Invoice::class.java, anyIdentity)
         assertThat(invoices, `is`(equalTo(mapOf())))
@@ -211,7 +222,7 @@ class SimpleAggregateRepositoryTest {
 
         val eventPublisher = InMemoryEventPublisher()
         val eventStore = InMemoryEventStore(1)
-        val eventRepository = SimpleAggregateRepository(eventStore, TestMessageFormat(), eventPublisher, configuration)
+        val eventRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
         eventRepository.save(aggregate, anyIdentity)
 
 
@@ -234,7 +245,7 @@ class SimpleAggregateRepositoryTest {
     @Test
     fun creatingManySnapshots() {
         val eventPublisher = InMemoryEventPublisher()
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), eventPublisher, configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), messageFormat, eventPublisher, configuration)
 
         var aggregate = TestAggreagate("::id::", "::string::", 1, TestObject("::value::", Foo("bar")), listOf(TestObject("::value2::", Foo("baar"))))
 
@@ -266,7 +277,7 @@ class SimpleAggregateRepositoryTest {
 
     @Test
     fun usingDefaultSnapshotMapper() {
-        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), TestMessageFormat(), InMemoryEventPublisher(), configuration)
+        val eventRepository = SimpleAggregateRepository(InMemoryEventStore(1), messageFormat, InMemoryEventPublisher(), configuration)
         val id = invoiceId()
 
         var invoice = Invoice(id, "John")
