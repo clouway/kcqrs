@@ -21,7 +21,8 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return aggregateId
     }
 
-    final override fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T {
+    @Suppress("UNCHECKED_CAST")
+    final override fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long): T {
         val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion)
         val newInstance = this@AggregateRootBase::class.java.newInstance()
         setFields(snapshotRootBase, newInstance)
@@ -37,8 +38,8 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
                 return Snapshot(data.getExpectedVersion(), Binary(gson.toJson(data)))
             }
 
-            override fun fromSnapshot(snapshot: String, snapshotVersion: Long): AggregateRoot {
-                return gson.fromJson(snapshot, this@AggregateRootBase::class.java)
+            override fun fromSnapshot(snapshot: ByteArray, snapshotVersion: Long): AggregateRoot {
+                return gson.fromJson(snapshot.toString(Charsets.UTF_8), this@AggregateRootBase::class.java)
             }
         }
     }

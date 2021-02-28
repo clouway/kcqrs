@@ -33,15 +33,15 @@ class InMemoryEventStore(private val eventsLimit: Int) : EventStore {
 
         val streamKey = streamKey(request.tenant, request.stream)
 
-        if (!idToAggregate.contains(streamKey)) {
-            idToAggregate[streamKey] = mutableListOf(StoredAggregate(request.tenant, request.aggregateType, mutableListOf(), null))
+        val aggregate = if (!idToAggregate.contains(streamKey)) {
+            val newAggr = StoredAggregate(request.tenant, request.aggregateType, mutableListOf(), null)
+            idToAggregate[streamKey] = mutableListOf(newAggr)
+            newAggr
+        } else {
+             idToAggregate[streamKey]!!.find { it.events.find { event -> event.aggregateId == request.events[0].aggregateId} != null }!!
         }
 
         val aggregates = idToAggregate[streamKey]!!
-
-        val aggregate = aggregates.find {
-            it.events.find { event -> event.aggregateId == request.events[0].aggregateId} != null
-        }!!
 
         if (saveOptions.createSnapshot.required) {
             val snapshot = saveOptions.createSnapshot.snapshot

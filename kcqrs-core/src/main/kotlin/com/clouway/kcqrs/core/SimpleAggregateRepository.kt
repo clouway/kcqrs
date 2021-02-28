@@ -201,7 +201,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         try {
             aggregate = type.newInstance()
             if (snapshot != null) {
-                aggregate = aggregate.fromSnapshot(String(snapshot.data.payload), snapshot.version) as T
+                aggregate = aggregate.fromSnapshot(snapshot.data.payload, snapshot.version) as T
             }
         } catch (e: InstantiationException) {
             throw HydrationException(id, "target type: '${type.name}' cannot be instantiated")

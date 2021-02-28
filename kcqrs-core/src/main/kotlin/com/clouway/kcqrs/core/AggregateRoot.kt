@@ -52,7 +52,7 @@ interface AggregateRoot {
     /**
      * Builds an aggregate from snapshot data and the current version of the snapshot
      */
-    fun <T : AggregateRoot> fromSnapshot(snapshotData: String, snapshotVersion: Long): T
+    fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long): T
 }
 
 
@@ -66,5 +66,5 @@ interface SnapshotMapper<T : AggregateRoot> {
     /**
      * Create an aggregate from given snapshot
      */
-    fun fromSnapshot(snapshot: String, snapshotVersion: Long): T
+    fun fromSnapshot(snapshot: ByteArray, snapshotVersion: Long): T
 }

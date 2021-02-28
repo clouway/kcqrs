@@ -128,7 +128,7 @@ class SimpleAggregateRepositoryTest {
             fail("exception wasn't re-thrown when publishing failed?")
         } catch (ex: PublishErrorException) {
             val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(anyIdentity.tenant, "Invoice_$invoiceId")) as GetEventsResponse.Success
-            assertThat(response.aggregates[0].events.isEmpty(), `is`(true))
+            assertThat(response.aggregates.isEmpty(), `is`(true))
         }
     }
 
