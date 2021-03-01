@@ -1,7 +1,6 @@
-package com.clouway.kcqrs.example.adapter.pb
+package com.clouway.kcqrs.messages.proto
 
 import com.clouway.kcqrs.core.messages.MessageFormat
-import com.clouway.kcqrs.messages.proto.EventAdapter
 import java.io.InputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
