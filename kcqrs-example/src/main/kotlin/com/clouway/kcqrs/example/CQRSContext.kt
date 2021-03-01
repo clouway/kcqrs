@@ -11,6 +11,7 @@ import com.clouway.kcqrs.core.messages.DataModelFormat
 import com.clouway.kcqrs.example.domain.ProductNameChangedEvent
 import com.clouway.kcqrs.example.domain.ProductRegisteredEvent
 import com.clouway.kcqrs.messages.proto.Events
+import com.clouway.kcqrs.messages.proto.ProtoMessageFactory
 import com.google.gson.Gson
 import java.io.InputStream
 import java.io.InputStreamReader
