@@ -34,7 +34,7 @@ dependencies {
   testCompile 'org.jmock:jmock:2.8.2'
   testCompile 'org.jmock:jmock-junit4:2.8.2'
 
-  testCompile 'com.google.code.gson:gson:2.8.0'
+  testCompile 'com.google.code.gson:gson:2.8.6'
   testCompile 'org.jmock:jmock:2.8.2'
   testCompile 'org.jmock:jmock-junit4:2.8.2'
 }

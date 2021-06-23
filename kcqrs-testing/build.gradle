@@ -24,7 +24,7 @@ repositories {
 dependencies {
   compile project(':kcqrs-core')
 
-  compile 'com.google.code.gson:gson:2.8.0'
+  compile 'com.google.code.gson:gson:2.8.6'
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
   compile group: 'junit', name: 'junit', version: '4.12'
 
