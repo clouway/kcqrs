@@ -180,6 +180,18 @@ class SimpleAggregateRepositoryTest {
 
         eventRepository.getById("::any id::", Invoice::class.java, anyIdentity)
     }
+    
+    @Test
+    fun getUnknownAggregates() {
+        val eventRepository = SimpleAggregateRepository(
+            InMemoryEventStore(5),
+            messageFormat,
+            InMemoryEventPublisher(),
+            configuration
+        )
+        val invoices = eventRepository.getByIds(listOf("::any id::"), Invoice::class.java, anyIdentity)
+        assertThat(invoices, `is`(equalTo(emptyMap())))
+    }
 
     @Test
     fun getMultipleAggregates() {

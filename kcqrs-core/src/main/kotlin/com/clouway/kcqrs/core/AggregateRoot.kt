@@ -50,11 +50,17 @@ interface AggregateRoot {
      * of Snapshots for the EventStore
      */
     fun getSnapshotMapper(): SnapshotMapper<AggregateRoot>
+    
+    /**
+     * Gets the snapshot data type which to be used for parsing of the message.
+     */
+    fun getSnapshotDataType(): Class<*>?
 
     /**
      * Builds an aggregate from snapshot data and the current version of the snapshot
      */
     fun <T : AggregateRoot> fromSnapshot(snapshotData: ByteArray, snapshotVersion: Long, messageFormat: MessageFormat): T
+    
 }
 
 

@@ -2,6 +2,7 @@ package com.clouway.kcqrs.testing
 
 import com.clouway.kcqrs.core.messages.DataModelFormat
 import com.clouway.kcqrs.core.messages.MessageFormat
+import com.clouway.kcqrs.core.messages.TypeLookup
 import com.google.gson.Gson
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -21,12 +22,12 @@ class TestMessageFormat(vararg types: Class<*>) : MessageFormat, DataModelFormat
 		}
 	}
 	
-	override fun isSupporting(kind: String): Boolean {
+	override fun isSupporting(kind: String, typeLookup: TypeLookup): Boolean {
 		return kindToType.containsKey(kind)
 	}
 	
 	@Suppress("UNCHECKED_CAST")
-	override fun <T> parse(stream: InputStream, kind: String): T {
+	override fun <T> parse(stream: InputStream, kind: String, typeLookup: TypeLookup): T {
 		val type = kindToType.getValue(kind)
 		return gson.fromJson(InputStreamReader(stream, Charsets.UTF_8), type) as T
 	}

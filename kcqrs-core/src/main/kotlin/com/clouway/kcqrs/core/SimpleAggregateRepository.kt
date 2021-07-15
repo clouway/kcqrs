@@ -133,7 +133,10 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                     result[aggregateId] = buildAggregateFromHistory(type, it.events, it.version, aggregateId, it.snapshot) }
                 return result
             }
-            else -> throw IllegalStateException("unknown state")
+            is GetEventsResponse.AggregateNotFound -> {
+                return mapOf()
+            }
+            else -> throw IllegalStateException("unknown response: $response")
         }
     }
 
@@ -154,6 +157,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 //we are sure that only one aggregate will be returned
                 return buildAggregateFromHistory(type, aggregate.events, aggregate.version, aggregateId, response.aggregates.first().snapshot)
             }
+            is GetEventsResponse.AggregateNotFound -> throw AggregateNotFoundException(aggregateId)
             else -> throw IllegalStateException("unknown response: $response")
         }
     }
@@ -178,6 +182,10 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 val aggregate = response.aggregates[0]
                 return buildAggregateFromHistory(type, aggregate.events,aggregate.version, id, response.aggregates.first().snapshot)
             }
+            // Supported for the legacy eventstore.
+            is GetEventsResponse.AggregateNotFound -> {
+                throw AggregateNotFoundException(id)
+            }
             else -> throw IllegalStateException("unknown state")
         }
     }
@@ -187,8 +195,8 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         adapter.fetchMetadata(type)
         val history = mutableListOf<Any>()
         events.forEach {
-            if (messageFormat.isSupporting(it.kind)) {
-                val event = messageFormat.parse<Any>(ByteArrayInputStream(it.data.payload), it.kind)
+            if (messageFormat.isSupporting(it.kind, adapter)) {
+                val event = messageFormat.parse<Any>(ByteArrayInputStream(it.data.payload), it.kind, adapter)
                 history.add(event)
             }
         }

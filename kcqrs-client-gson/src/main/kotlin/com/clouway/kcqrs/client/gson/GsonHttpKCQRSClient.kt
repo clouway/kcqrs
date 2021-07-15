@@ -12,6 +12,7 @@ import com.clouway.kcqrs.core.Kcqrs
 import com.clouway.kcqrs.core.MessageBus
 import com.clouway.kcqrs.core.SimpleAggregateRepository
 import com.clouway.kcqrs.core.SimpleMessageBus
+import com.clouway.kcqrs.core.messages.MessageFormatFactory
 import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.HttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -48,7 +49,7 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
         var identityProvider: IdentityProvider = IdentityProvider.Default()
         var eventPublisher: EventPublisher = SyncEventPublisher(messageBus)
         var requestInitializer: HttpRequestInitializer = NopHttpRequestInitializer()
-
+        var messageFormatFactory: MessageFormatFactory = GsonMessageFormatFactory()
         fun build(init: Builder.() -> Unit): Kcqrs {
             init()
 
@@ -60,8 +61,8 @@ class GsonHttpKCQRSClient(private val messageBus: MessageBus,
                     },
                     timeout
             )
-            
-            val messageFormat = GsonMessageFormatFactory().createMessageFormat()
+          
+            val messageFormat = messageFormatFactory.createMessageFormat()
             val aggregateRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
             return GsonHttpKCQRSClient(messageBus, eventStore, AuthoredAggregateRepository(identityProvider, aggregateRepository))
         }

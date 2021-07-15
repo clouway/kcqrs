@@ -1,6 +1,7 @@
 package com.clouway.kcqrs.messages.proto
 
 import com.clouway.kcqrs.core.messages.MessageFormat
+import com.clouway.kcqrs.core.messages.TypeLookup
 import java.io.InputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -17,11 +18,11 @@ class ProtoMessageFormat(vararg params: EventAdapter<*, *>) : MessageFormat {
 	// An internal lookup map used for lookups "kind" to adapter.
 	var kindToAdapter = params.map { it.type.simpleName to it }.toMap()
 	
-	override fun isSupporting(kind: String): Boolean {
+	override fun isSupporting(kind: String, typeLookup: TypeLookup): Boolean {
 		return kindToAdapter.containsKey(kind)
 	}
 	
-	override fun <T> parse(stream: InputStream, kind: String): T {
+	override fun <T> parse(stream: InputStream, kind: String, typeLookup: TypeLookup): T {
 		val adapter = kindToAdapter.getValue(kind)
 		
 		val method: Method

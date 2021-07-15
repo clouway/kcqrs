@@ -1,11 +1,10 @@
 package com.clouway.kcqrs.core
 
 import com.clouway.kcqrs.core.messages.MessageFormat
-import com.google.gson.Gson
+import com.clouway.kcqrs.core.messages.TypeLookup
 import java.io.ByteArrayInputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
-import java.util.ArrayList
 
 
 /**
@@ -47,11 +46,22 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
                 snapshotVersion: Long,
                 messageFormat: MessageFormat
             ): AggregateRoot {
-                return messageFormat.parse(ByteArrayInputStream(snapshot), this@AggregateRootBase::class.java.simpleName)
+                return messageFormat.parse(
+                    ByteArrayInputStream(snapshot),
+                    this@AggregateRootBase::class.java.simpleName,
+                    object : TypeLookup {
+                        override fun lookup(kind: String): Class<*>? {
+                            return getSnapshotDataType()
+                        }
+                    })
             }
         }
     }
-
+    
+    override fun getSnapshotDataType(): Class<*>? {
+        return null
+    }
+    
     override fun markChangesAsCommitted() {
         changes.clear()
     }
