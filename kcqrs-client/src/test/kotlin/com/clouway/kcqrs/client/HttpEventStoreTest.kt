@@ -72,7 +72,7 @@ class HttpEventStoreTest {
 		val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
 			it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
 		})
-		val response = store.saveEvents(SaveEventsRequest("tenant1", "", "Invoice", listOf(EventPayload(aggregateId, "::kind::", 1L, "::user::", Binary("::event data::"))))) as SaveEventsResponse.Success
+		val response = store.saveEvents(SaveEventsRequest("tenant1", "Invoice_123", "Invoice", listOf(EventPayload(aggregateId, "::kind::", 1L, "::user::", Binary("::event data::"))))) as SaveEventsResponse.Success
 		
 		assertThat(response, `is`(equalTo(SaveEventsResponse.Success(
 				version = 4,
@@ -110,7 +110,7 @@ class HttpEventStoreTest {
 		transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 		
 		assertThat(outputStream.toString(), `is`(equalTo(
-				"""{"aggregateType":"Invoice","events":[{"aggregateId":"$aggregateId","identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshotRequired":false,"stream":"Invoice_$aggregateId","tenant":"tenant1","topicName":"crm","version":1}""".trimIndent()
+				"""{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshotRequired":false,"topicName":"crm","version":1}""".trimIndent()
 		)))
 	}
 	
@@ -136,7 +136,7 @@ class HttpEventStoreTest {
 		transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 		
 		assertThat(outputStream.toString(), `is`(equalTo(
-				"""{"aggregateType":"Invoice","events":[{"aggregateId":"$aggregateId","identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"stream":"Invoice_$aggregateId","tenant":"tenant1","topicName":"crm","version":1}""".trimIndent()
+				"""{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
 		)))
 	}
 	
@@ -159,7 +159,7 @@ class HttpEventStoreTest {
 		val response = store.saveEvents(
 				SaveEventsRequest(
 						"tenant1",
-						"",
+						"Order_123",
 						"Order",
 						listOf(EventPayload(aggregateId, "::kind::", 1L, "::user id::", Binary("::event data::")))
 				),
@@ -186,7 +186,7 @@ class HttpEventStoreTest {
 		val response = store.saveEvents(
 				SaveEventsRequest(
 						"::tenant 1",
-						"",
+						"Order_123",
 						"Order",
 						listOf(EventPayload(aggregateId, "::kind::", 1L, "::user id::", Binary("::event data::")))
 				)
@@ -209,7 +209,7 @@ class HttpEventStoreTest {
 		val response = store.saveEvents(
 				SaveEventsRequest(
 						"tenant1",
-						"",
+						"StockItem_123",
 						"InventoryItem",
 						listOf(EventPayload("::kind::", "::event data::"))
 				)
@@ -232,7 +232,7 @@ class HttpEventStoreTest {
 			it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
 		})
 		
-		val response = store.saveEvents(SaveEventsRequest("::teanant::", "", "Order", listOf(EventPayload(aggregateId, "::event kind::", 1L, "::user id::", Binary("::event data::")))), SaveOptions(version = 4)) as SaveEventsResponse.EventCollision
+		val response = store.saveEvents(SaveEventsRequest("::teanant::", "Order_123", "Order", listOf(EventPayload(aggregateId, "::event kind::", 1L, "::user id::", Binary("::event data::")))), SaveOptions(version = 4)) as SaveEventsResponse.EventCollision
 		assertThat(response, `is`(equalTo(SaveEventsResponse.EventCollision(5))))
 	}
 	
@@ -294,61 +294,6 @@ class HttpEventStoreTest {
 		})
 		
 		store.getEventsFromStreams(GetEventsFromStreamsRequest("tenant1", "Invoice_$aggregateId")) as GetEventsResponse.AggregateNotFound
-	}
-	
-	@Test
-	fun retrieveAllEvents() {
-		val aggregateId = randomAggregateId()
-		
-		val responsePayload = """
-            {"events": [
-                  {
-                    "position": 1,
-                    "tenant": "tenant1",
-                    "aggregateType": "Invoice",
-                    "version": 1,
-                    "payload":  {"aggregateId": "$aggregateId","kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"}
-                  },
-                  {
-                    "position": 2,
-                    "tenant": "tenant1",
-                    "aggregateType": "Invoice",
-                    "version": 1,
-                    "payload":  {"aggregateId": "$aggregateId","kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"}
-                  },
-                  {
-                    "position": 3,
-                    "tenant": "tenant1",
-                    "aggregateType": "Invoice",
-                    "version": 1,
-                    "payload":  {"aggregateId": "$aggregateId","kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
-                  }
-              ],
-              "readDirection": "FORWARD",
-              "nextPosition": 4
-            }
-            """.trimIndent()
-		
-		val transport = MockHttpTransport.Builder()
-				.setLowLevelHttpResponse(MockLowLevelHttpResponse()
-						.setStatusCode(HttpStatusCodes.STATUS_CODE_OK)
-						.setContent(responsePayload))
-				.build()
-		
-		val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
-			it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
-		})
-		
-		val result = store.getAllEvents(GetAllEventsRequest(null, 5)) as GetAllEventsResponse.Success
-		
-		assertThat(result.nextPosition, `is`(equalTo(Position(4L))))
-		assertThat(result.readDirection, `is`(equalTo(ReadDirection.FORWARD)))
-		
-		assertThat(result.events, hasItems(
-				IndexedEvent(Position(1L), "tenant1", "Invoice", 1L, EventPayload(aggregateId, "::kind 1::", 1L, "::user::", Binary("::event data::"))),
-				IndexedEvent(Position(2L), "tenant1", "Invoice", 1L, EventPayload(aggregateId, "::kind 2::", 2L, "::user::", Binary("::event data::"))),
-				IndexedEvent(Position(3L), "tenant1", "Invoice", 1L, EventPayload(aggregateId, "::kind 3::", 3L, "::user::", Binary("::event data::")))
-		))
 	}
 	
 	@Test
@@ -599,7 +544,7 @@ class HttpEventStoreTest {
 		transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 		
 		assertThat(outputStream.toString(), `is`(equalTo(
-				"""{"aggregateType":"Invoice","events":[{"aggregateId":"$aggregateId","identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"stream":"Invoice_$aggregateId","tenant":"tenant1","topicName":"crm","version":1}""".trimIndent()
+				"""{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[100,97,116,97]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
 		)))
 	}
 	
@@ -632,7 +577,7 @@ class HttpEventStoreTest {
 		transport.lowLevelHttpRequest.streamingContent.writeTo(outputStream)
 		
 		assertThat(outputStream.toString(), `is`(equalTo(
-				"""{"aggregateType":"Invoice","events":[{"aggregateId":"$aggregateId","identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[]},"version":0},"snapshotRequired":true,"stream":"Invoice_$aggregateId","tenant":"tenant1","topicName":"crm","version":1}""".trimIndent()
+				"""{"aggregateId":"$aggregateId","aggregateType":"Invoice","events":[{"identityId":"::user::","kind":"::kind::","payload":"::event data::","timestamp":1}],"snapshot":{"data":{"payload":[]},"version":0},"snapshotRequired":true,"topicName":"crm","version":1}""".trimIndent()
 		)))
 	}
 	

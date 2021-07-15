@@ -143,8 +143,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         /*
          * Get the events from the event store
          */
-        val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, listOf(stream)))
-        when (response) {
+        when (val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, listOf(stream)))) {
             is GetEventsResponse.Success -> {
                 if (response.aggregates.isEmpty()) {
                     throw AggregateNotFoundException(aggregateId)
@@ -155,7 +154,7 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 //we are sure that only one aggregate will be returned
                 return buildAggregateFromHistory(type, aggregate.events, aggregate.version, aggregateId, response.aggregates.first().snapshot)
             }
-            else -> throw IllegalStateException("unknown state")
+            else -> throw IllegalStateException("unknown response: $response")
         }
     }
 
