@@ -3,7 +3,7 @@ group 'com.clouway.kcqrs'
 description = 'kcqrs-messages-proto'
 
 buildscript {
-  ext.kotlin_version = '1.4.10'
+  ext.kotlin_version = '1.5.31'
 
   repositories {
     mavenCentral()
@@ -28,7 +28,7 @@ dependencies {
   compile project(':kcqrs-core')
   compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
-  compileOnly 'com.google.protobuf:protobuf-java:3.13.0'
+  compileOnly 'com.google.protobuf:protobuf-java:3.14.0'
   testCompile project(':kcqrs-testing')
 
   testCompile 'org.jmock:jmock:2.8.2'

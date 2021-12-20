@@ -1,7 +1,7 @@
 group 'com.clouway.kcqrs.adapters'
 
 buildscript {
-  ext.kotlin_version = '1.4.10'
+  ext.kotlin_version = '1.5.31'
   ext.gae_version = '1.9.74'
 
   repositories {
