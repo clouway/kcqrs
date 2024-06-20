@@ -116,11 +116,11 @@ class HttpEventStore(
 	
 	override fun getEventsFromStreams(request: GetEventsFromStreamsRequest): GetEventsResponse {
 		val streams = request.streams
-		val stream = streams.first()
-		val key = StreamKey.from(stream)
+		val keys = streams.map { StreamKey.from(it) }
+		val aggregateIds = keys.map { it.aggregateId }
 		
 		val httpRequest =
-			requestFactory.buildGetRequest(GenericUrl("$endpoint/v2/aggregates/${key.aggregateId}?aggregateType=${key.aggregateType}"))
+			requestFactory.buildGetRequest(GenericUrl("$endpoint/v2/aggregates?ids=${aggregateIds.joinToString(",")}&aggregateType=${keys[0].aggregateType}"))
 				.setConnectTimeout(timeout).setReadTimeout(timeout)
 		httpRequest.headers.set("Accept-version", "v2")
 		httpRequest.throwExceptionOnExecuteError = false
@@ -129,14 +129,14 @@ class HttpEventStore(
 			
 			// Aggregate was not found and no events cannot be returned
 			if (response.statusCode == HttpStatusCodes.STATUS_CODE_NOT_FOUND) {
-				return GetEventsResponse.AggregateNotFound(aggregateIds = listOf(key.aggregateId), aggregateType = key.aggregateType)
+				return GetEventsResponse.AggregateNotFound(aggregateIds = aggregateIds, aggregateType = keys[0].aggregateType)
 			}
 			
 			if (response.isSuccessStatusCode) {
 				val resp = response.parseAs(GetEventsResponseDto::class.java)
 				
 				val aggregates = resp.aggregates.map {
-					adapt(key.aggregateId, it)
+					adapt(it.aggregateId, it)
 				}
 				
 				return GetEventsResponse.Success(aggregates)
@@ -277,13 +277,14 @@ internal data class GetEventsResponseDto(@Key @JvmField var aggregates: List<Agg
 }
 
 internal data class AggregateDto(
+	@Key @JvmField var aggregateId: String,
 	@Key @JvmField var aggregateType: String,
 	@Key @JvmField var snapshot: SnapshotDto?,
 	@Key @JvmField var version: Long,
 	@Key @JvmField var topic: String,
 	@Key @JvmField var events: List<EventPayloadDto>
 ) {
-	constructor() : this("", null, 0L, "", listOf())
+	constructor() : this("", "", null, 0L, "", listOf())
 }
 
 internal data class EventPayloadDto(

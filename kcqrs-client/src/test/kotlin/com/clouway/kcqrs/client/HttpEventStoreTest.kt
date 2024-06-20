@@ -244,6 +244,7 @@ class HttpEventStoreTest {
             {"aggregates": [
                   {
                     "aggregateType": "Invoice",
+										"aggregateId": "$aggregateId",
                     "version": 4,
                     "events": [
                         {"aggregateId": "$aggregateId", "kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"},
@@ -277,6 +278,78 @@ class HttpEventStoreTest {
 								EventPayload(aggregateId, "::kind 3::", 3L, "::user::", Binary("::event data::"))
 						)
 				)))
+	}
+	
+	@Test
+	fun retrieveMultipleAggregates() {
+		val aggregate1 = randomAggregateId()
+		val aggregate2 = randomAggregateId()
+		
+		val responsePayload = """
+            {
+							"aggregates": [
+                  {
+                    "aggregateType": "Invoice",
+										"aggregateId": "$aggregate1",
+                    "version": 4,
+                    "events": [
+                        {"aggregateId": "$aggregate1", "kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"},
+                        {"aggregateId": "$aggregate1", "kind": "::kind 2::","timestamp": 2,"version": 2, "identityId":"::user::", "payload": "::event data::"},
+                        {"aggregateId": "$aggregate1", "kind": "::kind 3::","timestamp": 3,"version": 3, "identityId":"::user::", "payload": "::event data::"}
+                    ]
+                  },
+									{
+										"aggregateType": "Invoice",
+										"aggregateId": "$aggregate2",
+										"version": 1,
+										"events": [
+											{"aggregateId": "$aggregate2", "kind": "::kind 1::","timestamp": 1,"version": 1, "identityId":"::user::", "payload": "::event data::"}
+										]
+									}
+              ]
+            }
+            """.trimIndent()
+		
+		val transport = MockHttpTransport.Builder()
+			.setLowLevelHttpResponse(
+				MockLowLevelHttpResponse()
+					.setStatusCode(HttpStatusCodes.STATUS_CODE_OK)
+					.setContent(responsePayload)
+			)
+			.build()
+		
+		val store = HttpEventStore(anyBackendEndpoint, transport.createRequestFactory {
+			it.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
+		})
+		
+		val result = store.getEventsFromStreams(
+			GetEventsFromStreamsRequest(
+				"tenant1",
+				listOf("Invoice_$aggregate1", "Invoice_$aggregate2")
+			)
+		) as GetEventsResponse.Success
+		assertThat(
+			result.aggregates, hasItems(
+				Aggregate(
+					"Invoice",
+					null,
+					4L,
+					listOf(
+						EventPayload(aggregate1, "::kind 1::", 1L, "::user::", Binary("::event data::")),
+						EventPayload(aggregate1, "::kind 2::", 2L, "::user::", Binary("::event data::")),
+						EventPayload(aggregate1, "::kind 3::", 3L, "::user::", Binary("::event data::"))
+					)
+				),
+				Aggregate(
+					"Invoice",
+					null,
+					1L,
+					listOf(
+						EventPayload(aggregate2, "::kind 1::", 1L, "::user::", Binary("::event data::")),
+					)
+				)
+			)
+		)
 	}
 	
 	@Test

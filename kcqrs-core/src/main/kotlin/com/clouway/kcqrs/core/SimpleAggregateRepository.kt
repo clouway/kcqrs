@@ -119,13 +119,11 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
 
         val streamIds = ids.map { StreamKey.of(aggregateType, it) }
-
+        
         /*
          * Get the events from the event store
         */
-        val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, streamIds))
-
-        when (response) {
+        when ( val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, streamIds))) {
             is GetEventsResponse.Success -> {
                 val result = mutableMapOf<String, T>()
                 response.aggregates.forEach {

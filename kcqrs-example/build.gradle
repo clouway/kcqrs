@@ -1,53 +1,47 @@
-group 'com.clouway.kcqrs.example'
-
-buildscript {
-  ext.kotlin_version = '1.5.31'
-
-  repositories {
-    jcenter()
-    mavenCentral()
-  }
-  dependencies {
-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-  }
+plugins {
+  id 'java'
+  id 'war'
+  id 'org.jetbrains.kotlin.jvm'
 }
 
-apply plugin: 'java'
-apply plugin: 'war'
-apply plugin: 'kotlin'
-
-sourceCompatibility = 1.8
+group = 'com.clouway.kcqrs.example'
+description = 'kcqrs-example'
 
 repositories {
   mavenCentral()
 }
 
 dependencies {
-  compile project(':kcqrs-firestore')
-  compile project(':kcqrs-client')
-  compile project(':kcqrs-client-gson')
-  compile project(':kcqrs-messages-proto')
-  compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+  implementation project(':kcqrs-core')
+  implementation project(':kcqrs-firestore')
+  implementation project(':kcqrs-client')
+  implementation project(':kcqrs-client-gson')
+  implementation project(':kcqrs-messages-proto')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
-  compile 'com.google.http-client:google-http-client:1.23.0'
-
+  implementation 'com.google.http-client:google-http-client:1.23.0'
   implementation "javax.servlet:javax.servlet-api:3.1.0"
-     
-  compile "org.eclipse.jetty:jetty-server:9.4.31.v20200723"
-  compile "org.eclipse.jetty:jetty-servlet:9.4.31.v20200723"
+  implementation "org.eclipse.jetty:jetty-server:9.4.31.v20200723"
+  implementation "org.eclipse.jetty:jetty-servlet:9.4.31.v20200723"
+  implementation "com.sparkjava:spark-core:2.8.0"
+  implementation "com.sparkjava:spark-kotlin:1.0.0-alpha"
+  implementation 'com.google.code.gson:gson:2.8.6'
+  implementation 'com.google.protobuf:protobuf-java:3.15.3'
 
-  compile "com.sparkjava:spark-core:2.8.0"
-  compile "com.sparkjava:spark-kotlin:1.0.0-alpha"
-  compile 'com.google.code.gson:gson:2.8.6'
-  compile 'com.google.protobuf:protobuf-java:3.15.3'
-  
-  testCompile group: 'junit', name: 'junit', version: '4.12'
+  testImplementation 'junit:junit:4.12'
 }
 
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions {
+    jvmTarget = "1.8"
+  }
+}
 
-compileKotlin {
-  kotlinOptions.jvmTarget = "1.8"
+tasks.withType(Javadoc).configureEach {
+  failOnError = false
+  classpath = configurations.compileClasspath
 }
-compileTestKotlin {
-  kotlinOptions.jvmTarget = "1.8"
-}
+
+sourceSets.main.compileClasspath += configurations.compileClasspath
+sourceSets.test.compileClasspath += configurations.compileClasspath
+sourceSets.test.runtimeClasspath += configurations.compileClasspath

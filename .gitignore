@@ -26,3 +26,4 @@ buildSrc/out
 out
 subprojects/*/*.iml
 subprojects/*/out
+gradle.properties

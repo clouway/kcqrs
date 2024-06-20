@@ -1,56 +1,40 @@
-group 'com.clouway.kcqrs'
-
-description = 'kcqrs-core'
-
-buildscript {
-  ext.kotlin_version = '1.5.31'
-
-  repositories {
-    mavenCentral()
-  }
-  dependencies {
-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-  }
+plugins {
+  id 'java'
+  id 'org.jetbrains.kotlin.jvm'
 }
 
-apply plugin: 'java'
-apply plugin: 'kotlin'
+group = 'com.clouway.kcqrs'
+description = 'kcqrs-client-gson'
 
 repositories {
   mavenCentral()
 }
 
-configurations {
-  providedCompile
-}
-
 dependencies {
-  compile project(':kcqrs-core')
-  compile project(':kcqrs-client')
-  compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-  compile 'com.google.code.gson:gson:2.8.6'
-  compile 'com.google.http-client:google-http-client:1.23.0'
-  compile 'com.google.http-client:google-http-client-gson:1.23.0'
+  implementation project(':kcqrs-core')
+  implementation project(':kcqrs-client')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+  implementation 'com.google.code.gson:gson:2.8.6'
+  implementation 'com.google.http-client:google-http-client:1.23.0'
+  implementation 'com.google.http-client:google-http-client-gson:1.23.0'
 
-  testCompile project(':kcqrs-testing')
-
-  testCompile 'org.jmock:jmock:2.8.2'
-  testCompile 'org.jmock:jmock-junit4:2.8.2'
-  testCompile group: 'junit', name: 'junit', version: '4.12'
+  testImplementation project(':kcqrs-testing')
+  testImplementation 'org.jmock:jmock:2.8.2'
+  testImplementation 'org.jmock:jmock-junit4:2.8.2'
+  testImplementation 'junit:junit:4.12'
 }
 
-sourceSets.main.compileClasspath += configurations.providedCompile
-sourceSets.test.compileClasspath += configurations.providedCompile
-sourceSets.test.runtimeClasspath += configurations.providedCompile
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions {
+    jvmTarget = "1.8"
+  }
+}
 
-javadoc {
+tasks.withType(Javadoc).configureEach {
   failOnError = false
-  classpath = configurations.compile + configurations.providedCompile
+  classpath = configurations.compileClasspath
 }
 
-compileKotlin {
-  kotlinOptions.jvmTarget = "1.8"
-}
-compileTestKotlin {
-  kotlinOptions.jvmTarget = "1.8"
-}
+sourceSets.main.compileClasspath += configurations.compileClasspath
+sourceSets.test.compileClasspath += configurations.compileClasspath
+sourceSets.test.runtimeClasspath += configurations.compileClasspath

@@ -1,76 +1,132 @@
-apply plugin: 'java'
-apply plugin: 'com.bmuschko.nexus'
-
-buildscript {
-  repositories {
-    jcenter()
-    maven {
-      url 'https://plugins.gradle.org/m2/'
-    }
-  }
-  dependencies {
-    classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
-    classpath 'net.researchgate:gradle-release:2.6.0'
-  }
+plugins {
+  id 'java'
+  id 'net.researchgate.release' version '2.6.0'
+  id 'io.github.gradle-nexus.publish-plugin' version '1.1.0'
+  id 'maven-publish'
+  id 'signing'
+  id 'org.jetbrains.kotlin.jvm' version '1.7.10' apply false
 }
+
+group = 'com.clouway.kcqrs'
 
 repositories {
   mavenCentral()
 }
 
-apply plugin: 'net.researchgate.release'
+ext {
+  kotlin_version = '1.7.10'
+  commonPom = {
+    name.set(project.name)
+    description.set("${project.name} module of CQRS In Kotlin")
+    url.set('https://github.com/clouway/kcqrs')
 
-allprojects {
+    scm {
+      url.set('https://github.com/clouway/kcqrs')
+      connection.set('scm:https://clouway@github.com/clouway/kcqrs.git')
+      developerConnection.set('scm:git://github.com/clouway/kcqrs.git')
+    }
+
+    licenses {
+      license {
+        name.set('The Apache Software License, Version 2.0')
+        url.set('http://www.apache.org/licenses/LICENSE-2.0.txt')
+        distribution.set('repo')
+      }
+    }
+
+    developers {
+      developer {
+        id.set('telcong')
+        name.set('Telcong Bot')
+        email.set('telcong@clouway.com')
+      }
+    }
+  }
+}
+
+subprojects {
   apply plugin: 'java'
-  apply plugin: 'com.bmuschko.nexus'
+  apply plugin: 'org.jetbrains.kotlin.jvm'
+  apply plugin: 'maven-publish'
+  apply plugin: 'signing'
 
   sourceCompatibility = 1.8
   targetCompatibility = 1.8
 
+  repositories {
+    mavenCentral()
+  }
 
-  group = 'com.clouway.kcqrs'
-  
-  modifyPom {
-     project {
-       name 'kcqrs'
-       description 'CQRS In Kotlin'
-       url 'https://github.com/clouway/kcqrs'
-       inceptionYear '2018'
+  dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+  }
 
-       scm {
-         url 'https://github.com/clouway/kcqrs'
-         connection 'scm:https://clouway@github.com/clouway/kcqrs.git'
-         developerConnection 'scm:git://github.com/clouway/kcqrs.git'
-       }
+  tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+      jvmTarget = "1.8"
+    }
+  }
 
-       licenses {
-         license {
-           name 'The Apache Software License, Version 2.0'
-           url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-           distribution 'repo'
-         }
-       }
 
-       developers {
-         developer {
-           id 'telcong'
-           name 'Telcong Bot'
-           email 'telcong@clouway.com'
-         }
-       }
-     }
-   }
+  task sourcesJar(type: Jar) {
+    from sourceSets.main.allSource
+    archiveClassifier.set('sources')
+  }
 
-   extraArchive {
-     sources = true
-     tests = false
-     javadoc = true
-   }
+  task javadocJar(type: Jar) {
+    from tasks.javadoc
+    archiveClassifier.set('javadoc')
+  }
 
-   nexus {
-     sign = true
-     repositoryUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
-     snapshotRepositoryUrl = 'https://oss.sonatype.org/content/repositories/snapshots'
-   }
+  artifacts {
+    archives sourcesJar
+    archives javadocJar
+  }
 
+  publishing {
+    publications {
+      mavenJava(MavenPublication) {
+        from components.java
+        artifact sourcesJar
+        artifact javadocJar
+        pom.withXml {
+          asNode().appendNode('name', project.name)
+          asNode().appendNode('description', "${project.name} module of CQRS In Kotlin")
+          asNode().appendNode('url', 'https://github.com/clouway/kcqrs')
+
+          def scmNode = asNode().appendNode('scm')
+          scmNode.appendNode('url', 'https://github.com/clouway/kcqrs')
+          scmNode.appendNode('connection', 'scm:https://clouway@github.com/clouway/kcqrs.git')
+          scmNode.appendNode('developerConnection', 'scm:git://github.com/clouway/kcqrs.git')
+
+          def licensesNode = asNode().appendNode('licenses')
+          def licenseNode = licensesNode.appendNode('license')
+          licenseNode.appendNode('name', 'The Apache Software License, Version 2.0')
+          licenseNode.appendNode('url', 'http://www.apache.org/licenses/LICENSE-2.0.txt')
+          licenseNode.appendNode('distribution', 'repo')
+
+          def developersNode = asNode().appendNode('developers')
+          def developerNode = developersNode.appendNode('developer')
+          developerNode.appendNode('id', 'telcong')
+          developerNode.appendNode('name', 'Telcong Bot')
+          developerNode.appendNode('email', 'telcong@clouway.com')
+        }
+      }
+    }
+  }
+
+  signing {
+    sign publishing.publications.mavenJava
+  }
+}
+
+nexusPublishing {
+  repositories {
+    sonatype {
+      nexusUrl = uri('https://oss.sonatype.org/service/local/')
+      snapshotRepositoryUrl = uri('https://oss.sonatype.org/content/repositories/snapshots')
+      username = project.findProperty("sonatypeUsername") ?: ""
+      password = project.findProperty("sonatypePassword") ?: ""
+    }
+  }
 }

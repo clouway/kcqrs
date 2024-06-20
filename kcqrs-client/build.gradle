@@ -1,56 +1,31 @@
-group 'com.clouway.kcqrs'
-
-description = 'kcqrs-client'
-
-buildscript {
-  ext.kotlin_version = '1.5.31'
-
-  repositories {
-    mavenCentral()
-  }
-  dependencies {
-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-  }
+plugins {
+  id 'java'
+  id 'org.jetbrains.kotlin.jvm'
+  id 'maven-publish'
+  id 'signing'
 }
 
-apply plugin: 'java'
-apply plugin: 'kotlin'
+group = 'com.clouway.kcqrs'
+description = 'kcqrs-client'
 
 repositories {
   mavenCentral()
 }
 
-configurations {
-  providedCompile
-}
-
 dependencies {
-  compile project(':kcqrs-core')
-  compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-  compile 'com.google.http-client:google-http-client:1.23.0'
-  compile 'com.google.http-client:google-http-client-gson:1.23.0'
+  implementation project(':kcqrs-core')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+  implementation 'com.google.http-client:google-http-client:1.23.0'
+  implementation 'com.google.http-client:google-http-client-gson:1.23.0'
 
-  testCompile 'junit:junit:4.12'
-  testCompile 'org.jmock:jmock:2.8.2'
-  testCompile 'org.jmock:jmock-junit4:2.8.2'
-
-  testCompile 'com.google.code.gson:gson:2.8.6'
-  testCompile 'org.jmock:jmock:2.8.2'
-  testCompile 'org.jmock:jmock-junit4:2.8.2'
+  testImplementation 'junit:junit:4.12'
+  testImplementation 'org.jmock:jmock:2.8.2'
+  testImplementation 'org.jmock:jmock-junit4:2.8.2'
+  testImplementation 'com.google.code.gson:gson:2.8.6'
 }
 
-sourceSets.main.compileClasspath += configurations.providedCompile
-sourceSets.test.compileClasspath += configurations.providedCompile
-sourceSets.test.runtimeClasspath += configurations.providedCompile
-
-javadoc {
-  failOnError = false
-  classpath = configurations.compile + configurations.providedCompile
-}
-
-compileKotlin {
-  kotlinOptions.jvmTarget = "1.8"
-}
-compileTestKotlin {
-  kotlinOptions.jvmTarget = "1.8"
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+  kotlinOptions {
+    jvmTarget = "1.8"
+  }
 }
