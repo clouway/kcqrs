@@ -5,6 +5,18 @@ CQRS library build in Kotlin for better development experience.
 ### Build Status
 [![Build Status](https://travis-ci.org/clouway/kcqrs.svg?branch=master)](https://travis-ci.org/clouway/kcqrs)
 
+### Building & Releasing
+
+In gradle.properies file add the following properties
+```bash
+version=v1.2.8
+sonatypeUsername=xxxx
+sonatypePassword=xxxx
+signing.keyId=xxxx
+signing.password=pass
+signing.secretKeyRingFile=/Users/yourname/.gnupg/pubring.gpg
+```
+
 ### Architecture
 ![Architecture](docs/architecture.png)
 
@@ -176,6 +188,7 @@ cqrs.repository()
       <version>0.0.1</version>
     </dependency>
 ```
+   
 
 
 #### TODO
