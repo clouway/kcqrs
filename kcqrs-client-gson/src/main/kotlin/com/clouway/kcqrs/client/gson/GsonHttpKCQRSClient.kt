@@ -1,7 +1,6 @@
 package com.clouway.kcqrs.client.gson
 
 import com.clouway.kcqrs.client.HttpEventStore
-import com.clouway.kcqrs.core.SyncEventPublisher
 import com.clouway.kcqrs.core.AggregateRepository
 import com.clouway.kcqrs.core.AuthoredAggregateRepository
 import com.clouway.kcqrs.core.Configuration
@@ -12,6 +11,7 @@ import com.clouway.kcqrs.core.Kcqrs
 import com.clouway.kcqrs.core.MessageBus
 import com.clouway.kcqrs.core.SimpleAggregateRepository
 import com.clouway.kcqrs.core.SimpleMessageBus
+import com.clouway.kcqrs.core.SyncEventPublisher
 import com.clouway.kcqrs.core.messages.MessageFormatFactory
 import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.HttpTransport
@@ -24,48 +24,45 @@ import java.net.URL
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-class GsonHttpKCQRSClient(private val messageBus: MessageBus,
-                          private val eventStore: EventStore,
-                          private val aggregateRepository: AggregateRepository) : Kcqrs {
+class GsonHttpKCQRSClient(
+    private val messageBus: MessageBus,
+    private val eventStore: EventStore,
+    private val aggregateRepository: AggregateRepository,
+) : Kcqrs {
+    override fun messageBus(): MessageBus = messageBus
 
-    override fun messageBus(): MessageBus {
-        return messageBus
-    }
+    override fun eventStore(): EventStore = eventStore
 
-    override fun eventStore(): EventStore {
-        return eventStore
-    }
+    override fun repository(): AggregateRepository = aggregateRepository
 
-    override fun repository(): AggregateRepository {
-        return aggregateRepository
-    }
-
-    class Builder(private val configuration: Configuration,
-                  private val endpoint: URL,
-                  private val transport: HttpTransport,
-                  private val timeout: Int = 60000) {
-
+    class Builder(
+        private val configuration: Configuration,
+        private val endpoint: URL,
+        private val transport: HttpTransport,
+        private val timeout: Int = 60000,
+    ) {
         val messageBus = SimpleMessageBus()
         var identityProvider: IdentityProvider = IdentityProvider.Default()
         var eventPublisher: EventPublisher = SyncEventPublisher(messageBus)
         var requestInitializer: HttpRequestInitializer = NopHttpRequestInitializer()
         var messageFormatFactory: MessageFormatFactory = GsonMessageFormatFactory()
+
         fun build(init: Builder.() -> Unit): Kcqrs {
             init()
 
-            val eventStore = HttpEventStore(
+            val eventStore =
+                HttpEventStore(
                     endpoint,
                     transport.createRequestFactory { request ->
                         request.parser = GsonFactory.getDefaultInstance().createJsonObjectParser()
                         requestInitializer.initialize(request)
                     },
-                    timeout
-            )
-          
+                    timeout,
+                )
+
             val messageFormat = messageFormatFactory.createMessageFormat()
             val aggregateRepository = SimpleAggregateRepository(eventStore, messageFormat, eventPublisher, configuration)
             return GsonHttpKCQRSClient(messageBus, eventStore, AuthoredAggregateRepository(identityProvider, aggregateRepository))
         }
     }
 }
-

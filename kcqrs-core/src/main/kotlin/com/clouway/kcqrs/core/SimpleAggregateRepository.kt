@@ -4,14 +4,17 @@ import com.clouway.kcqrs.core.messages.MessageFormat
 import java.io.ByteArrayInputStream
 import java.util.UUID
 
-
-class SimpleAggregateRepository(private val eventStore: EventStore,
-                                private val messageFormat: MessageFormat,
-                                private val eventPublisher: EventPublisher,
-                                private val configuration: Configuration
+class SimpleAggregateRepository(
+    private val eventStore: EventStore,
+    private val messageFormat: MessageFormat,
+    private val eventPublisher: EventPublisher,
+    private val configuration: Configuration,
 ) : AuditAwareAggregateRepository {
-
-    override fun <T : AggregateRoot> save(stream: String, aggregate: T, identity: Identity) {
+    override fun <T : AggregateRoot> save(
+        stream: String,
+        aggregate: T,
+        identity: Identity,
+    ) {
         if (aggregate.getId() == null) {
             throw IllegalArgumentException("aggregate id cannot be null when trying to persist it")
         }
@@ -25,9 +28,10 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             aggregateId = UUID.randomUUID().toString()
         }
 
-        val events = eventsWithPayload.map {
-            EventPayload(aggregateId, it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, it.payload)
-        }
+        val events =
+            eventsWithPayload.map {
+                EventPayload(aggregateId, it.event::class.java.simpleName, identity.time.toEpochMilli(), identity.id, it.payload)
+            }
 
         if (events.isEmpty()) return
 
@@ -38,10 +42,11 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
 
         val saveEventsRequest = SaveEventsRequest(identity.tenant, stream, aggregateType, events)
 
-        val response = eventStore.saveEvents(
+        val response =
+            eventStore.saveEvents(
                 saveEventsRequest,
-                SaveOptions(version = aggregate.getExpectedVersion(), topicName = topicName)
-        )
+                SaveOptions(version = aggregate.getExpectedVersion(), topicName = topicName),
+            )
 
         when (response) {
             is SaveEventsResponse.Success -> {
@@ -56,18 +61,26 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
             is SaveEventsResponse.EventCollision -> {
                 throw EventCollisionException(aggregate.getId()!!, response.expectedVersion)
             }
-            //The chosen persistence has reached it's limit for events so a snapshot needs to be created.
+            // The chosen persistence has reached it's limit for events so a snapshot needs to be created.
             is SaveEventsResponse.SnapshotRequired -> {
-                val currentAggregate = buildAggregateFromHistory(aggregateClass, response.currentEvents, response.version, aggregate.getId()!!, response.currentSnapshot)
-                
+                val currentAggregate =
+                    buildAggregateFromHistory(
+                        aggregateClass,
+                        response.currentEvents,
+                        response.version,
+                        aggregate.getId()!!,
+                        response.currentSnapshot,
+                    )
+
                 val newSnapshot = currentAggregate.getSnapshotMapper().toSnapshot(currentAggregate, messageFormat)
-                val createSnapshotResponse = eventStore.saveEvents(
+                val createSnapshotResponse =
+                    eventStore.saveEvents(
                         saveEventsRequest,
                         SaveOptions(
-                                version = newSnapshot.version,
-                                createSnapshot = CreateSnapshot(true, newSnapshot)
-                        )
-                )
+                            version = newSnapshot.version,
+                            createSnapshot = CreateSnapshot(true, newSnapshot),
+                        ),
+                    )
 
                 when (createSnapshotResponse) {
                     is SaveEventsResponse.Success -> {
@@ -99,7 +112,10 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
      * @throws EventCollisionException is thrown in case of
      */
     @Throws(EventCollisionException::class, PublishErrorException::class)
-    override fun <T : AggregateRoot> save(aggregate: T, identity: Identity) {
+    override fun <T : AggregateRoot> save(
+        aggregate: T,
+        identity: Identity,
+    ) {
         val aggregateClass = aggregate::class.java
         val aggregateType = aggregateClass.simpleName
         var aggregateId = aggregate.getId()!!
@@ -111,7 +127,11 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         return this.save(StreamKey.of(aggregateType, aggregateId), aggregate, identity)
     }
 
-    override fun <T : AggregateRoot> getByIds(ids: List<String>, type: Class<T>, identity: Identity): Map<String, T> {
+    override fun <T : AggregateRoot> getByIds(
+        ids: List<String>,
+        type: Class<T>,
+        identity: Identity,
+    ): Map<String, T> {
         val tenant = identity.tenant
         val aggregateType = type.simpleName
         if (ids.isEmpty()) {
@@ -119,16 +139,17 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
 
         val streamIds = ids.map { StreamKey.of(aggregateType, it) }
-        
+
         /*
          * Get the events from the event store
-        */
-        when ( val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, streamIds))) {
+         */
+        when (val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, streamIds))) {
             is GetEventsResponse.Success -> {
                 val result = mutableMapOf<String, T>()
                 response.aggregates.forEach {
                     val aggregateId = it.events[0].aggregateId
-                    result[aggregateId] = buildAggregateFromHistory(type, it.events, it.version, aggregateId, it.snapshot) }
+                    result[aggregateId] = buildAggregateFromHistory(type, it.events, it.version, aggregateId, it.snapshot)
+                }
                 return result
             }
             is GetEventsResponse.AggregateNotFound -> {
@@ -138,7 +159,12 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
     }
 
-    override fun <T : AggregateRoot> getById(stream: String, aggregateId: String, type: Class<T>, identity: Identity): T {
+    override fun <T : AggregateRoot> getById(
+        stream: String,
+        aggregateId: String,
+        type: Class<T>,
+        identity: Identity,
+    ): T {
         val tenant = identity.tenant
 
         /*
@@ -149,18 +175,31 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 if (response.aggregates.isEmpty()) {
                     throw AggregateNotFoundException(aggregateId)
                 }
-                
-                val aggregate = response.aggregates.find { it.events[0].aggregateId == aggregateId } ?: throw AggregateNotFoundException(aggregateId)
-                
-                //we are sure that only one aggregate will be returned
-                return buildAggregateFromHistory(type, aggregate.events, aggregate.version, aggregateId, response.aggregates.first().snapshot)
+
+                val aggregate =
+                    response.aggregates.find { it.events[0].aggregateId == aggregateId } ?: throw AggregateNotFoundException(
+                        aggregateId,
+                    )
+
+                // we are sure that only one aggregate will be returned
+                return buildAggregateFromHistory(
+                    type,
+                    aggregate.events,
+                    aggregate.version,
+                    aggregateId,
+                    response.aggregates.first().snapshot,
+                )
             }
             is GetEventsResponse.AggregateNotFound -> throw AggregateNotFoundException(aggregateId)
             else -> throw IllegalStateException("unknown response: $response")
         }
     }
 
-    override fun <T : AggregateRoot> getById(id: String, type: Class<T>, identity: Identity): T {
+    override fun <T : AggregateRoot> getById(
+        id: String,
+        type: Class<T>,
+        identity: Identity,
+    ): T {
         val tenant = identity.tenant
 
         // A stream is related to a single aggregate and for this reason the existing behaviour is kept
@@ -176,9 +215,9 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
                 if (response.aggregates.isEmpty()) {
                     throw AggregateNotFoundException(id)
                 }
-                //we are sure that only one aggregate will be returned
+                // we are sure that only one aggregate will be returned
                 val aggregate = response.aggregates[0]
-                return buildAggregateFromHistory(type, aggregate.events,aggregate.version, id, response.aggregates.first().snapshot)
+                return buildAggregateFromHistory(type, aggregate.events, aggregate.version, id, response.aggregates.first().snapshot)
             }
             // Supported for the legacy eventstore.
             is GetEventsResponse.AggregateNotFound -> {
@@ -188,7 +227,13 @@ class SimpleAggregateRepository(private val eventStore: EventStore,
         }
     }
 
-    private fun <T : AggregateRoot> buildAggregateFromHistory(type: Class<T>, events: List<EventPayload>, version: Long, id: String, snapshot: Snapshot? = null): T {
+    private fun <T : AggregateRoot> buildAggregateFromHistory(
+        type: Class<T>,
+        events: List<EventPayload>,
+        version: Long,
+        id: String,
+        snapshot: Snapshot? = null,
+    ): T {
         val adapter = AggregateAdapter<T>("apply")
         adapter.fetchMetadata(type)
         val history = mutableListOf<Any>()

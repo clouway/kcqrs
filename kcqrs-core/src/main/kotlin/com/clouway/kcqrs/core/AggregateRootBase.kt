@@ -6,27 +6,26 @@ import java.io.ByteArrayInputStream
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
-
 /**
  * AggregateRootBase is a Base class of all aggregate roots.
  *
  * @author Miroslav Genov (miroslav.genov@clouway.com)
  */
-abstract class AggregateRootBase private constructor(@JvmField protected var aggregateId: String? = "", @JvmField protected var version:Long  = 0L) : AggregateRoot {
-
+abstract class AggregateRootBase private constructor(
+    @JvmField protected var aggregateId: String? = "",
+    @JvmField protected var version: Long = 0L,
+) : AggregateRoot {
     private var changes: ArrayList<Any> = ArrayList()
 
     constructor() : this(null)
 
-    override fun getId(): String? {
-        return aggregateId
-    }
+    override fun getId(): String? = aggregateId
 
     @Suppress("UNCHECKED_CAST")
     final override fun <T : AggregateRoot> fromSnapshot(
         snapshotData: ByteArray,
         snapshotVersion: Long,
-        messageFormat: MessageFormat
+        messageFormat: MessageFormat,
     ): T {
         val snapshotRootBase = getSnapshotMapper().fromSnapshot(snapshotData, snapshotVersion, messageFormat)
         val newInstance = this@AggregateRootBase::class.java.newInstance()
@@ -35,46 +34,41 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         return newInstance as T
     }
 
-    override fun getSnapshotMapper(): SnapshotMapper<AggregateRoot> {
-        return object : SnapshotMapper<AggregateRoot> {
-            override fun toSnapshot(data: AggregateRoot, messageFormat: MessageFormat): Snapshot {
-                return Snapshot(data.getExpectedVersion(), Binary(messageFormat.formatToBytes(data)))
-            }
-            
+    override fun getSnapshotMapper(): SnapshotMapper<AggregateRoot> =
+        object : SnapshotMapper<AggregateRoot> {
+            override fun toSnapshot(
+                data: AggregateRoot,
+                messageFormat: MessageFormat,
+            ): Snapshot = Snapshot(data.getExpectedVersion(), Binary(messageFormat.formatToBytes(data)))
+
             override fun fromSnapshot(
                 snapshot: ByteArray,
                 snapshotVersion: Long,
-                messageFormat: MessageFormat
-            ): AggregateRoot {
-                return messageFormat.parse(
+                messageFormat: MessageFormat,
+            ): AggregateRoot =
+                messageFormat.parse(
                     ByteArrayInputStream(snapshot),
                     this@AggregateRootBase::class.java.simpleName,
                     object : TypeLookup {
-                        override fun lookup(kind: String): Class<*>? {
-                            return getSnapshotDataType()
-                        }
-                    })
-            }
+                        override fun lookup(kind: String): Class<*>? = getSnapshotDataType()
+                    },
+                )
         }
-    }
-    
-    override fun getSnapshotDataType(): Class<*>? {
-        return null
-    }
-    
+
+    override fun getSnapshotDataType(): Class<*>? = null
+
     override fun markChangesAsCommitted() {
         changes.clear()
     }
 
-    override fun getExpectedVersion(): Long {
-        return version
-    }
+    override fun getExpectedVersion(): Long = version
 
-    override fun getUncommittedChanges(): List<Any> {
-        return if (changes.isEmpty()) listOf() else changes
-    }
+    override fun getUncommittedChanges(): List<Any> = if (changes.isEmpty()) listOf() else changes
 
-    override fun loadFromHistory(history: Iterable<Any>, version: Long) {
+    override fun loadFromHistory(
+        history: Iterable<Any>,
+        version: Long,
+    ) {
         this.version = version
         for (event in history) {
             applyChange(event, false)
@@ -98,16 +92,18 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
      * @param isNew
      * @throws HydrationException
      */
-    private fun applyChange(event: Any, isNew: Boolean) {
-
+    private fun applyChange(
+        event: Any,
+        isNew: Boolean,
+    ) {
         var method: Method? = null
 
         try {
             method = this::class.java.getDeclaredMethod("apply", event::class.java)
         } catch (e: NoSuchMethodException) {
-            //do nothing. This just means that the method signature wasn't found and
-            //the aggregate doesn't need to apply any state changes since it wasn't
-            //implemented.
+            // do nothing. This just means that the method signature wasn't found and
+            // the aggregate doesn't need to apply any state changes since it wasn't
+            // implemented.
         }
 
         if (method != null) {
@@ -128,7 +124,10 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
         }
     }
 
-    private fun setFields(from: Any, to: Any) {
+    private fun setFields(
+        from: Any,
+        to: Any,
+    ) {
         from.javaClass.declaredFields.forEach { field ->
             try {
                 val fieldFrom = from.javaClass.getDeclaredField(field.name)
@@ -144,7 +143,7 @@ abstract class AggregateRootBase private constructor(@JvmField protected var agg
             }
         }
 
-        //Grabbing the aggregateId from the superClass
+        // Grabbing the aggregateId from the superClass
         val aggregateIdFieldFrom = from.javaClass.superclass.getDeclaredField("aggregateId")
         aggregateIdFieldFrom.isAccessible = true
         val value = aggregateIdFieldFrom.get(from)

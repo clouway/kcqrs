@@ -140,9 +140,20 @@ data class Aggregate(val aggregateType: String, val snapshot: Snapshot?, val ver
 
 data class Snapshot(val version: Long, val data: Binary)
 
-data class EventPayload(val aggregateId: String, val kind: String, val timestamp: Long, val identityId: String, val data: Binary) {
-    constructor(kind: String, payload: String) : this("", kind, 0, "", Binary(payload.toByteArray(Charsets.UTF_8)))
+data class EventPayload(val aggregateId: String, val kind: String, val timestamp: Long, val identityId: String, val data: Binary, val author: Author? = null) {
+    constructor(kind: String, payload: String) : this("", kind, 0, "", Binary(payload.toByteArray(Charsets.UTF_8)), author = null)
 }
+
+data class Author(
+    val id: String,
+    val email: String,
+    val givenName: String,
+    val middleName: String,
+    val familyName: String,
+    val position: String,
+    val customerId: String,
+    val customerName: String
+)
 
 data class Binary(val payload: ByteArray) {
 
