@@ -63,22 +63,16 @@ class SimpleAggregateRepository(
             }
             // The chosen persistence has reached it's limit for events so a snapshot needs to be created.
             is SaveEventsResponse.SnapshotRequired -> {
-                val currentAggregate =
-                    buildAggregateFromHistory(
-                        aggregateClass,
-                        response.currentEvents,
-                        response.version,
-                        aggregate.getId()!!,
-                        response.currentSnapshot,
-                    )
+                val currentAggregate = getById(aggregateId, aggregateClass, identity)
 
                 val newSnapshot = currentAggregate.getSnapshotMapper().toSnapshot(currentAggregate, messageFormat)
                 val createSnapshotResponse =
                     eventStore.saveEvents(
                         saveEventsRequest,
                         SaveOptions(
-                            version = newSnapshot.version,
-                            createSnapshot = CreateSnapshot(true, newSnapshot),
+                            version = currentAggregate.getExpectedVersion(),
+                            createSnapshot = CreateSnapshot(true, newSnapshot.copy(version = currentAggregate.getExpectedVersion())),
+                            topicName = topicName,
                         ),
                     )
 
@@ -209,8 +203,7 @@ class SimpleAggregateRepository(
         /*
          * Get the events from the event store
          */
-        val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, listOf(stream)))
-        when (response) {
+        when (val response = eventStore.getEventsFromStreams(GetEventsFromStreamsRequest(tenant, listOf(stream)))) {
             is GetEventsResponse.Success -> {
                 if (response.aggregates.isEmpty()) {
                     throw AggregateNotFoundException(id)
